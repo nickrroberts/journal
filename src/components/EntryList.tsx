@@ -1,4 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
+import * as Tooltip from '@radix-ui/react-tooltip';
+import { useState } from 'react';
+import { EllipsisVertical } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 
 type Entry = {
   id: number;
@@ -16,36 +19,33 @@ type Props = {
 
 export default function EntryList({ 
   entries,
-  onSelect, 
-  activeId, 
-  refreshEntries,
-  updateEntryTitle
+  onSelect,
+  activeId,
+  refreshEntries
 }: Props) {
-  const createNewEntry = () => {
-    invoke<number>("create_entry")
-      .then((id) => {
-        refreshEntries();
-        onSelect(id);
-      })
-      .catch((err) => console.error("New entry error:", err));
-  };
+    // track which entry’s menu is open
+    const [menuForId, setMenuForId] = useState<number | null>(null);
+    const showMenuFor = (id: number) => {
+      setMenuForId(prev => (prev === id ? null : id));
+    };
 
+    const handleDelete = async (id: number) => {
+      try {
+        await invoke('delete_entry', { id });
+        refreshEntries();
+        // if the deleted entry was active, clear selection
+        if (activeId === id) onSelect(null);
+        setMenuForId(null);
+      } catch (err) {
+        console.error('Delete entry error:', err);
+      }
+    };
+  
   return (
-    <div style={{ padding: "1rem" }}>
-      <button
-        onClick={createNewEntry}
-        style={{
-          marginBottom: "1rem",
-          padding: "0.5rem 1rem",
-          fontSize: "1rem",
-          cursor: "pointer",
-        }}
-      >
-        + New Entry
-      </button>
+    <div style={{ padding: "0 1.5rem 0 1rem" }}>
       <ul style={{ listStyle: "none", padding: 0 }}>
         {entries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((entry) => (
-          <li key={entry.id}>
+          <li key={entry.id} className="entry-item">
             <button
               onClick={() => onSelect(entry.id)}
               style={{
@@ -64,6 +64,35 @@ export default function EntryList({
             >
               {entry.title || "Untitled"}
             </button>
+            <Tooltip.Root
+              open={menuForId === entry.id}
+              onOpenChange={(open) => {
+                if (!open) setMenuForId(null);
+              }}
+            >
+              <Tooltip.Trigger asChild>
+                <EllipsisVertical 
+                  size={20}
+                  className="icon entry-menu" 
+                  onClick={() => showMenuFor(entry.id)} 
+                />
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content 
+                  side="right" 
+                  align="center" 
+                  sideOffset={5} 
+                  className="tooltip-content"
+                >
+                  <button
+                    className="delete-entry-button"
+                    onClick={() => handleDelete(entry.id)}
+                  >
+                    Delete
+                  </button>
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
           </li>
         ))}
       </ul>

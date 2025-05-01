@@ -3,19 +3,26 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding: 1rem 1rem 0 1rem;
+    padding: 1rem;
     font-family: Georgia, serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
   }
   
   .editor-title {
     width: 100%;
-    padding: 0.5rem;
+    padding: 1rem;
     font-size: 1.5rem;
     border: none;
     outline: none;
     background: transparent;
     font-weight: bold;
-    margin-bottom: 0.5rem;
+    resize: none;
+    overflow: hidden;
+    min-height: 1.5em;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    color: var(--text-color);
   }
   
   .editor-body-container {
@@ -34,6 +41,7 @@
     resize: none;
     background: transparent;
     line-height: 1.6;
+    color: var(--text-color);
   }
   
   .editor-save {

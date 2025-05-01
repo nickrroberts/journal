@@ -44,7 +44,7 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
         }
       }, [selectedId]);
   
-    const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleTitleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newTitle = e.target.value;
       setTitle(newTitle);
       if (selectedId !== null) {
@@ -56,12 +56,12 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
       <>
         <form className="editor" onSubmit={(e) => e.preventDefault()}>
           <label>
-            <input
+            <textarea
               className="editor-title"
-              type="text"
               placeholder="Title"
               value={title}
               onChange={handleTitleChange}
+              rows={1}
             />
           </label>
           <label className="editor-body-container">

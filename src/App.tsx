@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import EntryEditor from "./components/EntryEditor";
 import EntryList from "./components/EntryList";
+import Settings from "./components/Settings";
 import { invoke } from "@tauri-apps/api/core";
+import { NotebookPen, Cog } from 'lucide-react';
+import { createNewEntry } from './lib/createEntry';
+
 
 type Entry = {
   id: number;
@@ -9,12 +13,16 @@ type Entry = {
   created_at: string;
 };
 
+type Theme = 'system' | 'light' | 'dark';
+
 export default function App() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [isBlurred, setIsBlurred] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [theme, setTheme] = useState<Theme>('system');
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
-  const INACTIVITY_DURATION = 60000; // blur after a min
+  const INACTIVITY_DURATION = 60000; // 1 minute in milliseconds
 
   const refreshEntries = () => {
     invoke<Entry[]>("get_entries")
@@ -49,6 +57,63 @@ export default function App() {
       resetInactivityTimer();
     }
   };
+
+  const handleThemeChange = (newTheme: Theme) => {
+    setTheme(newTheme);
+    // Save theme preference to local storage
+    localStorage.setItem('theme', newTheme);
+  };
+
+  const handleImportComplete = async () => {
+    // Refresh the entries list after import
+    const entries = await invoke<Entry[]>('get_entries');
+    setEntries(entries);
+    // If there are entries, select the most recent one
+    if (entries.length > 0) {
+      setSelectedId(entries[0].id);
+    }
+  };
+
+  const handleCreateNewEntry = async () => {
+    try {
+      const id = await createNewEntry();
+      refreshEntries();
+      setSelectedId(id);
+      setShowSettings(false);
+    } catch (err) {
+      console.error('Failed to create new entry:', err);
+    }
+  };
+
+  useEffect(() => {
+    // Load saved theme preference
+    const savedTheme = localStorage.getItem('theme') as Theme | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Apply theme based on system preference or manual selection
+    const applyTheme = () => {
+      const isDarkMode = theme === 'dark' ||
+        (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+    };
+
+    applyTheme();
+
+    // Listen for system theme changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => {
+      if (theme === 'system') {
+        applyTheme();
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [theme]);
 
   useEffect(() => {
     refreshEntries();
@@ -99,27 +164,44 @@ export default function App() {
         overflow: "hidden",
         filter: isBlurred ? "blur(8px)" : "none",
         transition: "filter 0.3s ease",
-        cursor: isBlurred ? "pointer" : "default"
+        cursor: isBlurred ? "pointer" : "default",
+        backgroundColor: 'var(--background-color)',
+        color: 'var(--text-color)'
       }}
     >
-      <div style={{ 
-        width: "250px", 
-        background: "#f2f2f2", 
-        margin: 0, 
-        padding: 0, 
-        height: "100vh", 
-        display: "flex",
-        flexDirection: "column"
-      }}>
+      <div className="sidebar">
+      <div className="sidebar-header">
+        <NotebookPen onClick={handleCreateNewEntry}
+          className="icon new-entry"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") handleCreateNewEntry();
+          }}
+          style={{ cursor: "pointer" }}
+          size={20}
+        />
+      </div>  
+      <div className="entry-list-wrapper" style={{ flex: 1, overflowY: 'auto' }}>
         <EntryList 
-          entries={entries}
-          onSelect={setSelectedId} 
-          activeId={selectedId}
-          refreshEntries={refreshEntries}
-          updateEntryTitle={updateEntryTitle}
+            entries={entries}
+            onSelect={(id) => {
+              setSelectedId(id);
+              setShowSettings(false);
+            }} 
+            activeId={selectedId}
+            refreshEntries={refreshEntries}
+            updateEntryTitle={updateEntryTitle}
         />
       </div>
-
+        <div className="sidebar-footer">
+          <Cog 
+            onClick={() => setShowSettings(!showSettings)}
+            className="icon settings" 
+            size={20}
+          />
+        </div>
+      </div>
       <div style={{ 
         flex: 1, 
         margin: 0, 
@@ -127,11 +209,35 @@ export default function App() {
         height: "100vh", 
         overflow: "hidden"
       }}>
-        <EntryEditor 
-          selectedId={selectedId} 
-          refreshEntries={refreshEntries}
-          updateEntryTitle={updateEntryTitle}
-        />
+        {showSettings ? (
+          <div className="settings-container">
+            <div className="settings-header">
+              <button
+                onClick={() => setShowSettings(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-color)',
+                  cursor: 'pointer',
+                  fontSize: '1.2rem'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <Settings 
+              currentTheme={theme}
+              onThemeChange={handleThemeChange}
+              onImportComplete={handleImportComplete}
+            />
+          </div>
+        ) : (
+          <EntryEditor 
+            selectedId={selectedId} 
+            refreshEntries={refreshEntries}
+            updateEntryTitle={updateEntryTitle}
+          />
+        )}
       </div>
     </div>
   );

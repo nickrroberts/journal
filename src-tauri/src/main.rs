@@ -4,10 +4,25 @@
 use rusqlite::{params, Connection, Result};
 use serde::Serialize;
 use dirs::data_local_dir;
+use std::fs;
+use chrono::Local;
+use tauri::path::BaseDirectory;
+use tauri::Manager;
+use tauri_plugin_dialog;
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![save_entry, get_entries, get_entry, create_entry])
+        .plugin(tauri_plugin_dialog::init())
+        .invoke_handler(tauri::generate_handler![
+            save_entry, 
+            get_entries, 
+            get_entry, 
+            create_entry,
+            delete_entry,
+            export_database,
+            import_database,
+            delete_all_entries
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -33,6 +48,45 @@ fn init_db() -> Result<Connection> {
     )?;
 
     Ok(conn)
+}
+
+#[tauri::command]
+fn export_database(app: tauri::AppHandle) -> Result<String, String> {
+    let app_dir = data_local_dir()
+        .ok_or_else(|| "Could not find local data directory".to_string())?;
+    let db_path = app_dir.join("journal.db");
+    
+    let downloads_dir = app.path()
+        .resolve("", BaseDirectory::Download)
+        .map_err(|e| e.to_string())?;
+    
+    let timestamp = Local::now().format("%Y%m%d_%H%M%S").to_string();
+    let export_path = downloads_dir.join(format!("journal_export_{}.db", timestamp));
+    
+    fs::copy(&db_path, &export_path)
+        .map_err(|e| e.to_string())?;
+    
+    Ok(export_path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn import_database(_app: tauri::AppHandle, file_path: String) -> Result<(), String> {
+    let app_dir = data_local_dir()
+        .ok_or_else(|| "Could not find local data directory".to_string())?;
+    let db_path = app_dir.join("journal.db");
+    
+    // Backup the current database
+    if db_path.exists() {
+        let backup_path = app_dir.join("journal.db.backup");
+        fs::copy(&db_path, &backup_path)
+            .map_err(|e| e.to_string())?;
+    }
+    
+    // Copy the imported database
+    fs::copy(file_path, &db_path)
+        .map_err(|e| e.to_string())?;
+    
+    Ok(())
 }
 
 #[tauri::command]
@@ -116,4 +170,23 @@ fn create_entry() -> Result<i32, String> {
     
     let id = conn.last_insert_rowid() as i32;
     Ok(id)
+}
+
+#[tauri::command]
+fn delete_all_entries() -> Result<(), String> {
+    let conn = init_db().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM journal_entries", [])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_entry(id: i32) -> Result<(), String> {
+    let conn = init_db().map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM journal_entries WHERE id = ?1",
+        params![id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
