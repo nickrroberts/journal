@@ -51,7 +51,7 @@ export default function App() {
     resetInactivityTimer();
   };
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = () => {
     if (isBlurred) {
       setIsBlurred(false);
       resetInactivityTimer();
