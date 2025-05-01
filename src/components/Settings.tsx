@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { confirm } from '@tauri-apps/plugin-dialog';
+import { Select } from './Select';
 
 type Theme = 'system' | 'light' | 'dark';
 
@@ -74,29 +75,24 @@ export default function Settings({ currentTheme, onThemeChange, onImportComplete
 
   return (
     <div style={{ padding: '1rem' }}>
-      <h2 style={{ marginBottom: '1rem' }}>Settings</h2>
+      <h2 className='text-2xl font-semibold'>Settings</h2>
       
       <div style={{ marginBottom: '2rem' }}>
-        <label style={{ display: 'block', marginBottom: '0.5rem' }}>Theme:</label>
-        <select
+        <label style={{ display: 'block', marginBottom: '0.5rem' }} className='font-semibold'>Theme</label>
+        <Select
+        className="max-w-sm mx-auto my-4"
           value={currentTheme}
           onChange={(e) => onThemeChange(e.target.value as Theme)}
-          style={{
-            padding: '0.5rem',
-            borderRadius: '4px',
-            border: '1px solid var(--text-color)',
-            backgroundColor: 'var(--background-color)',
-            color: 'var(--text-color)'
-          }}
-        >
-          <option value="system">System</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
+          options={[
+            { label: 'System', value: 'system' },
+            { label: 'Light', value: 'light' },
+            { label: 'Dark', value: 'dark'}
+          ]}
+        />
       </div>
 
       <div style={{ marginBottom: '2rem' }}>
-        <h3 style={{ marginBottom: '1rem' }}>Manage entries</h3>
+        <h3 style={{ marginBottom: '1rem' }} className='font-semibold'>Manage entries</h3>
         
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <button

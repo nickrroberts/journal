@@ -5,7 +5,7 @@ import Settings from "./components/Settings";
 import { invoke } from "@tauri-apps/api/core";
 import { NotebookPen, Cog } from 'lucide-react';
 import { createNewEntry } from './lib/createEntry';
-
+import { X } from 'lucide-react';
 
 type Entry = {
   id: number;
@@ -212,18 +212,10 @@ export default function App() {
         {showSettings ? (
           <div className="settings-container">
             <div className="settings-header">
-              <button
+              <X
                 onClick={() => setShowSettings(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-color)',
-                  cursor: 'pointer',
-                  fontSize: '1.2rem'
-                }}
-              >
-                ✕
-              </button>
+                size={24}
+              />
             </div>
             <Settings 
               currentTheme={theme}

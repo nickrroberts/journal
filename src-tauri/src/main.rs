@@ -127,6 +127,30 @@ fn get_entries() -> Result<Vec<JournalEntry>, String> {
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
+    if entries.is_empty() {
+        conn.execute(
+            "INSERT INTO journal_entries (title, body) VALUES ('Untitled', '')",
+            [],
+        ).map_err(|e| e.to_string())?;
+
+        let mut stmt = conn.prepare("SELECT id, title, created_at FROM journal_entries ORDER BY created_at DESC")
+            .map_err(|e| e.to_string())?;
+
+        let entries = stmt
+            .query_map([], |row| {
+                Ok(JournalEntry {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    created_at: row.get(2)?,
+                })
+            })
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+
+        return Ok(entries);
+    }
+
     Ok(entries)
 }
 

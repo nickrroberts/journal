@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* Theme variables */
 :root {
   --background-color: #ffffff;
@@ -35,12 +37,6 @@ select {
   padding: 0.5rem;
   border-radius: 4px;
   font-size: 1rem;
-
-  /* Optional: add your own custom arrow */
-  background-image: url('/your-arrow-icon.svg');
-  background-repeat: no-repeat;
-  background-position: right 0.5rem center;
-  background-size: 1rem;
 }
 
 /* Hide scrollbars */
@@ -62,6 +58,10 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 } 
+
+h2 {
+  margin-bottom: 1rem;
+}
 
 .icon {
   stroke: #7d7d7d;
@@ -102,6 +102,13 @@ body {
 .sidebar-footer {
   margin-top: auto;
 }
+/* Settings */
+
+.settings-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 1rem;
+}
 
 /* Entry item styling */
 .entry-item {
@@ -117,6 +124,10 @@ body {
 }
 .entry-item:hover .entry-menu {
   opacity: 1;
+}
+
+.delete-entry-button {
+  color: red;
 }
 
 
