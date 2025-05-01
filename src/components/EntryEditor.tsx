@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./EntryEditor.css";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -11,6 +11,34 @@ type Props = {
 export default function EntryEditor({ selectedId, refreshEntries, updateEntryTitle }: Props) {
     const [title, setTitle] = useState("");
     const [body, setBody] = useState("");
+
+    const titleRef = useRef<HTMLTextAreaElement>(null);
+    const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+    useEffect(() => {
+        if (selectedId !== null) {
+          invoke<{ title: string; body: string }>("get_entry", { id: selectedId })
+            .then((entry) => {
+              setTitle(entry.title);
+              setBody(entry.body);
+              requestAnimationFrame(() => {
+                if (entry.title.trim().length === 0) {
+                  titleRef.current?.focus();
+                } else {
+                  bodyRef.current?.focus();
+                }
+              });
+            })
+            .catch((err) => console.error("Load error:", err));
+        } else {
+          // Reset the editor when creating a new entry
+          setTitle("");
+          setBody("");
+          requestAnimationFrame(() => {
+            titleRef.current?.focus();
+          });
+        }
+      }, [selectedId]);
   
     useEffect(() => {
       const timeout = setTimeout(() => {
@@ -28,21 +56,6 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
   
       return () => clearTimeout(timeout);
     }, [title, body, selectedId, refreshEntries]);
-
-    useEffect(() => {
-        if (selectedId !== null) {
-          invoke<{ title: string; body: string }>("get_entry", { id: selectedId })
-            .then((entry) => {
-              setTitle(entry.title);
-              setBody(entry.body);
-            })
-            .catch((err) => console.error("Load error:", err));
-        } else {
-          // Reset the editor when creating a new entry
-          setTitle("");
-          setBody("");
-        }
-      }, [selectedId]);
   
     const handleTitleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newTitle = e.target.value;
@@ -57,6 +70,7 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
         <form className="editor" onSubmit={(e) => e.preventDefault()}>
           <label>
             <textarea
+              ref={titleRef}
               className="editor-title"
               placeholder="Title"
               value={title}
@@ -66,6 +80,7 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
           </label>
           <label className="editor-body-container">
             <textarea
+              ref={bodyRef}
               className="editor-body"
               placeholder="Write your journal entry..."
               value={body}

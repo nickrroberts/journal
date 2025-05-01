@@ -22,7 +22,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [theme, setTheme] = useState<Theme>('system');
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
-  const INACTIVITY_DURATION = 60000; // 1 minute in milliseconds
+  const INACTIVITY_DURATION = 60000; // 1 minute of inactivity
 
   const refreshEntries = () => {
     invoke<Entry[]>("get_entries")
@@ -146,6 +146,9 @@ export default function App() {
       if (e.ctrlKey && e.key === 'b') {
         setIsBlurred(prev => !prev);
         resetInactivityTimer();
+      }
+      if (e.ctrlKey && e.key === 'n') {
+        handleCreateNewEntry();
       }
     };
 
