@@ -6,6 +6,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { NotebookPen, Cog } from 'lucide-react';
 import { createNewEntry } from './lib/createEntry';
 import { X } from 'lucide-react';
+import { check } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
 
 type Entry = {
   id: number;
@@ -84,6 +86,38 @@ export default function App() {
       console.error('Failed to create new entry:', err);
     }
   };
+
+  useEffect(() => {
+    (async () => {
+      const update = await check();
+      if (update) {
+        console.log(
+          `found update ${update.version} from ${update.date} with notes ${update.body}`
+        );
+        let downloaded = 0;
+        let contentLength = 0;
+
+        await update.downloadAndInstall((event) => {
+          switch (event.event) {
+            case 'Started':
+              contentLength = event.data?.contentLength ?? 0;
+              console.log(`started downloading ${event.data.contentLength} bytes`);
+              break;
+            case 'Progress':
+              downloaded += event.data.chunkLength;
+              console.log(`downloaded ${downloaded} from ${contentLength}`);
+              break;
+            case 'Finished':
+              console.log('download finished');
+              break;
+          }
+        });
+
+        console.log('update installed');
+        await relaunch();
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     // Load saved theme preference

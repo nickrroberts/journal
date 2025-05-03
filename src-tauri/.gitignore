@@ -12,3 +12,4 @@ journal.key
 *.key
 *.db
 .DS_Store
+tauri.conf.json

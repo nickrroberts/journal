@@ -27,3 +27,5 @@ journal.key
 *.key
 *.db
 tauri.conf.json
+update-manifest.js
+deploy-update.sh

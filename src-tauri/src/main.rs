@@ -1,12 +1,12 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use chrono::Local;
+use dirs::data_local_dir;
 use rusqlite::params;
 use serde::Serialize;
-use dirs::data_local_dir;
 use std::fs;
 use std::path::PathBuf;
-use chrono::Local;
 use tauri::path::BaseDirectory;
 use tauri::Manager;
 use tauri_plugin_dialog;
@@ -35,7 +35,8 @@ fn init_db() -> Result<rusqlite::Connection, String> {
         new_key
     };
     let conn = rusqlite::Connection::open(db_path).map_err(|e| e.to_string())?;
-    conn.pragma_update(None, "key", &encryption_key).map_err(|e| e.to_string())?;
+    conn.pragma_update(None, "key", &encryption_key)
+        .map_err(|e| e.to_string())?;
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS journal_entries (
@@ -45,7 +46,8 @@ fn init_db() -> Result<rusqlite::Connection, String> {
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )",
         [],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(conn)
 }
@@ -55,7 +57,8 @@ fn export_database(app: tauri::AppHandle) -> Result<String, String> {
     let app_dir = app_support_dir()?;
     let db_path = app_dir.join("journal.db");
 
-    let downloads_dir = app.path()
+    let downloads_dir = app
+        .path()
         .resolve("", BaseDirectory::Download)
         .map_err(|e| e.to_string())?;
 
@@ -86,7 +89,8 @@ fn save_entry(id: i32, title: String, body: String) -> Result<(), String> {
     conn.execute(
         "UPDATE journal_entries SET title = ?1, body = ?2 WHERE id = ?3",
         params![title, body, id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -101,16 +105,19 @@ struct JournalEntry {
 fn get_entries() -> Result<Vec<JournalEntry>, String> {
     let conn = init_db()?;
 
-    let mut stmt = conn.prepare("SELECT id, title, created_at FROM journal_entries ORDER BY created_at DESC")
+    let mut stmt = conn
+        .prepare("SELECT id, title, created_at FROM journal_entries ORDER BY created_at DESC")
         .map_err(|e| e.to_string())?;
 
-    let rows = stmt.query_map([], |row| {
-        Ok(JournalEntry {
-            id: row.get(0)?,
-            title: row.get(1)?,
-            created_at: row.get(2)?,
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(JournalEntry {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                created_at: row.get(2)?,
+            })
         })
-    }).map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?;
 
     let mut entries = Vec::new();
     for row in rows {
@@ -118,21 +125,27 @@ fn get_entries() -> Result<Vec<JournalEntry>, String> {
     }
 
     if entries.is_empty() {
-        conn.execute("INSERT INTO journal_entries (title, body) VALUES ('Untitled', '')", [])
-            .map_err(|e| e.to_string())?;
+        conn.execute(
+            "INSERT INTO journal_entries (title, body) VALUES ('Untitled', '')",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
         conn.execute("UPDATE journal_entries SET title = 'Untitled', body = '' WHERE id = (SELECT MAX(id) FROM journal_entries)", [])
             .map_err(|e| e.to_string())?;
 
-        let mut stmt = conn.prepare("SELECT id, title, created_at FROM journal_entries ORDER BY created_at DESC")
+        let mut stmt = conn
+            .prepare("SELECT id, title, created_at FROM journal_entries ORDER BY created_at DESC")
             .map_err(|e| e.to_string())?;
 
-        let rows = stmt.query_map([], |row| {
-            Ok(JournalEntry {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                created_at: row.get(2)?,
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(JournalEntry {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    created_at: row.get(2)?,
+                })
             })
-        }).map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?;
 
         let mut entries = Vec::new();
         for row in rows {
@@ -177,15 +190,19 @@ fn get_entry(id: i32) -> Result<FullJournalEntry, String> {
 #[tauri::command]
 fn create_entry() -> Result<i32, String> {
     let conn = init_db()?;
-    conn.execute("INSERT INTO journal_entries (title, body) VALUES ('Untitled', '')", [])
-        .map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO journal_entries (title, body) VALUES ('Untitled', '')",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
     Ok(conn.last_insert_rowid() as i32)
 }
 
 #[tauri::command]
 fn delete_all_entries() -> Result<(), String> {
     let conn = init_db()?;
-    conn.execute("DELETE FROM journal_entries", []).map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM journal_entries", [])
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -199,6 +216,7 @@ fn delete_entry(id: i32) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             save_entry,
