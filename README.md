@@ -1,7 +1,7 @@
 # Journal
 <p align="center">
   <img src="src-tauri/icons/128x128.png" alt="Journal Logo" width="128" />
-</p>
+</p
 
 A lightweight macOS-based journal with privacy as the first principle. There's no cloud syncing. No sharing. No other users. Just a nice composition experience on your mac.
 

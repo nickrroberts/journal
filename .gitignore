@@ -26,3 +26,4 @@ journal.db
 journal.key
 *.key
 *.db
+tauri.conf.json

@@ -120,6 +120,8 @@ fn get_entries() -> Result<Vec<JournalEntry>, String> {
     if entries.is_empty() {
         conn.execute("INSERT INTO journal_entries (title, body) VALUES ('Untitled', '')", [])
             .map_err(|e| e.to_string())?;
+        conn.execute("UPDATE journal_entries SET title = 'Untitled', body = '' WHERE id = (SELECT MAX(id) FROM journal_entries)", [])
+            .map_err(|e| e.to_string())?;
 
         let mut stmt = conn.prepare("SELECT id, title, created_at FROM journal_entries ORDER BY created_at DESC")
             .map_err(|e| e.to_string())?;
@@ -175,7 +177,7 @@ fn get_entry(id: i32) -> Result<FullJournalEntry, String> {
 #[tauri::command]
 fn create_entry() -> Result<i32, String> {
     let conn = init_db()?;
-    conn.execute("INSERT INTO journal_entries (title, body) VALUES ('', '')", [])
+    conn.execute("INSERT INTO journal_entries (title, body) VALUES ('Untitled', '')", [])
         .map_err(|e| e.to_string())?;
     Ok(conn.last_insert_rowid() as i32)
 }

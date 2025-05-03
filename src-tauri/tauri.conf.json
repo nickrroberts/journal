@@ -3,27 +3,14 @@
   "productName": "Journal",
   "version": "0.1.0",
   "identifier": "com.journal.app",
-  "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
-    "devUrl": "http://localhost:1420",
-    "frontendDist": "../dist"
-  },
-  "app": {
-    "windows": [
-      {
-        "title": "Journal",
-        "width": 1200,
-        "height": 900
-      }
-    ],
-    "security": {
-      "csp": null
-    }
-  },
   "bundle": {
     "active": true,
     "targets": "all",
+    "macOS": {
+      "signingIdentity": "Developer ID Application: Nicholas Roberts (Q8JPDQXD6H)",
+      "entitlements": "entitlements.plist"
+    },
+
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -32,7 +19,20 @@
       "icons/icon.ico"
     ]
   },
-  "plugins": {
-    "dialog": null
-  }
+
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+
+  "app": {
+    "windows": [
+      { "title": "Journal", "width": 1200, "height": 900 }
+    ],
+    "security": { "csp": null }
+  },
+
+  "plugins": { "dialog": null }
 }
