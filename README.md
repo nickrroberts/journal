@@ -3,7 +3,7 @@
   <img src="src-tauri/icons/128x128.png" alt="Journal Logo" width="128" />
 </p
 
-A lightweight journaling app for macOS, built with privacy as its core principle. No cloud. No syncing. No sharing. Just your thoughts — stored locally, and seen by no one but you. A calm, focused writing experience made just for your Mac.
+A lightweight journaling app for macOS, built with privacy as its core principle. No cloud. No syncing. No sharing. Just your thoughts stored locally, and seen by no one but you. A calm, focused writing experience made just for your Mac.
 
 ### Features
 <p align="center">
