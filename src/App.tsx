@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import TitleBar from './components/TitleBar';
 import EntryEditor from "./components/EntryEditor";
 import EntryList from "./components/EntryList";
 import Settings from "./components/Settings";
@@ -150,7 +151,14 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    refreshEntries();
+    invoke<Entry[]>("get_entries")
+      .then((entries) => {
+        setEntries(entries);
+        if (entries.length > 0) {
+          setSelectedId(entries[0].id);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch entries:", err));
   }, []);
 
   useEffect(() => {
@@ -194,7 +202,8 @@ export default function App() {
     <div 
       onClick={handleClick}
       style={{ 
-        display: "flex", 
+        display: "flex",
+        flexDirection: "column", 
         height: "100vh", 
         margin: 0, 
         padding: 0, 
@@ -206,68 +215,73 @@ export default function App() {
         color: 'var(--text-color)'
       }}
     >
-      <div className="sidebar">
-      <div className="sidebar-header">
-        <NotebookPen onClick={handleCreateNewEntry}
-          className="icon new-entry"
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") handleCreateNewEntry();
-          }}
-          style={{ cursor: "pointer" }}
-          size={20}
-        />
-      </div>  
-      <div className="entry-list-wrapper" style={{ flex: 1, overflowY: 'auto' }}>
-        <EntryList 
-            entries={entries}
-            onSelect={(id) => {
-              setSelectedId(id);
-              setShowSettings(false);
-            }} 
-            activeId={selectedId}
-            refreshEntries={refreshEntries}
-            updateEntryTitle={updateEntryTitle}
-        />
-      </div>
-        <div className="sidebar-footer">
-          <Cog 
-            onClick={() => setShowSettings(!showSettings)}
-            className="icon settings" 
+      <TitleBar />
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+        <div className="sidebar">
+        <div className="sidebar-header">
+          <NotebookPen onClick={handleCreateNewEntry}
+            className="icon new-entry"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") handleCreateNewEntry();
+            }}
+            style={{ cursor: "pointer" }}
             size={20}
           />
+        </div>  
+        <div className="entry-list-wrapper" style={{ flex: 1, overflowY: 'auto' }}>
+          <EntryList 
+              entries={entries}
+              onSelect={(id) => {
+                setSelectedId(id);
+                setShowSettings(false);
+              }} 
+              activeId={selectedId}
+              refreshEntries={refreshEntries}
+              updateEntryTitle={updateEntryTitle}
+          />
         </div>
-      </div>
-      <div style={{ 
-        flex: 1, 
-        margin: 0, 
-        padding: 0, 
-        height: "100vh", 
-        overflow: "hidden"
-      }}>
-        {showSettings ? (
-          <div className="settings-container">
-            <div className="settings-header">
-              <X
-                onClick={() => setShowSettings(false)}
-                size={24}
-              />
-            </div>
-            <Settings 
-              currentTheme={theme}
-              onThemeChange={handleThemeChange}
-              onImportComplete={handleImportComplete}
+          <div className="sidebar-footer">
+            <Cog 
+              onClick={() => setShowSettings(!showSettings)}
+              className="icon settings" 
+              size={20}
             />
           </div>
-        ) : (
-          <EntryEditor 
-            selectedId={selectedId} 
-            refreshEntries={refreshEntries}
-            updateEntryTitle={updateEntryTitle}
-          />
-        )}
+        </div>
+        <div style={{ 
+          flex: 1, 
+          margin: 0, 
+          padding: 0, 
+          height: "100vh", 
+          overflow: "hidden"
+        }}>
+          {showSettings ? (
+            <div className="settings-container">
+              <div className="settings-header">
+                <X
+                  onClick={() => setShowSettings(false)}
+                  size={24}
+                />
+              </div>
+              <Settings 
+                currentTheme={theme}
+                onThemeChange={handleThemeChange}
+                onImportComplete={handleImportComplete}
+              />
+            </div>
+          ) : (
+            <EntryEditor 
+              selectedId={selectedId} 
+              refreshEntries={refreshEntries}
+              updateEntryTitle={updateEntryTitle}
+            />
+          )}
+        </div>
+
       </div>
+      
     </div>
   );
 }

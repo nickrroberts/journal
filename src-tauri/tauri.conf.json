@@ -29,8 +29,16 @@
   },
 
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
-      { "title": "Journal", "width": 1200, "height": 900 }
+      { "title": "Journal", 
+      "decorations": false,
+      "transparent": true,
+      "width": 1200, 
+      "height": 900,
+      "resizable": true,
+      "titleBarStyle": "Transparent"
+    }
     ],
     "security": { "csp": null }
   },
