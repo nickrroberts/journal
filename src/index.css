@@ -34,7 +34,6 @@ select {
   appearance: none;
   -webkit-appearance: none; 
   -moz-appearance: none;
-  
   background-color: white;
   border: 1px solid #ccc;
   padding: 0.5rem;
@@ -52,8 +51,21 @@ select {
   scrollbar-width: none; 
 }
 
-body {
+#root {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+}
+
+html, body {
+  background: transparent;
+  height: 100%;
   margin: 0;
+}
+
+body {
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -78,7 +90,7 @@ h2 {
 .sidebar {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   width: 250px;
   background-color: var(--sidebar-color);
 }

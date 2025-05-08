@@ -1,0 +1,25 @@
+.titlebar {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    background: #5d5d5d;
+    height: 24px;
+  }
+
+  .titlebar *:not(.window-controls, .window-controls *) {
+    -webkit-app-region: drag;
+  }
+  
+  .window-controls button {
+    -webkit-app-region: no-drag;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: none;
+    margin-right: 8px;
+    cursor: pointer;
+  }
+  
+  button.close { background: #ff5f57; }
+  button.minimize { background: #ffbd2e; }
+  button.maximize { background: #28c940; }
