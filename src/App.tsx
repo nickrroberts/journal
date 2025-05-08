@@ -151,7 +151,14 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    refreshEntries();
+    invoke<Entry[]>("get_entries")
+      .then((entries) => {
+        setEntries(entries);
+        if (entries.length > 0) {
+          setSelectedId(entries[0].id);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch entries:", err));
   }, []);
 
   useEffect(() => {
