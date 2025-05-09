@@ -221,10 +221,14 @@ fn main() {
                 .id("settings")
                 .accelerator("Cmd+,")
                 .build(app)?;
+            let check_updates = MenuItemBuilder::new("Check for updates…")
+                .id("check_updates")
+                .build(app)?;
             let app_submenu = SubmenuBuilder::new(app, "Journal")
                 .about(Some(AboutMetadata::default()))
                 .separator()
                 .item(&settings)
+                .item(&check_updates)
                 .separator()
                 .quit()
                 .build()?;
@@ -238,6 +242,9 @@ fn main() {
         .on_menu_event(|window, menu_event| {
             if menu_event.id() == "settings" {
                 window.emit("open-settings", {}).unwrap();
+            }
+            if menu_event.id() == "check_updates" {
+                window.emit("check-for-updates", {}).unwrap();
             }
         })
         .plugin(tauri_plugin_updater::Builder::new().build())
