@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import EntryEditor from "./components/EntryEditor";
 import EntryList from "./components/EntryList";
 import Settings from "./components/Settings";
@@ -9,6 +10,10 @@ import { X } from 'lucide-react';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { listen } from '@tauri-apps/api/event';
+import changelog from "../changelog.json";
+import Modal from "./components/Modal";
+
+type Changelog = Record<string, string[]>;
 
 type Entry = {
   id: number;
@@ -24,6 +29,9 @@ export default function App() {
   const [isBlurred, setIsBlurred] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [theme, setTheme] = useState<Theme>('system');
+  const [showChangelog, setShowChangelog] = useState(false);
+  const [appVersion, setAppVersion] = useState<string>("");
+  const [lastCheckedUpToDate, setLastCheckedUpToDate] = useState(false);
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
   const INACTIVITY_DURATION = 60000; // 1 minute of inactivity
 
@@ -116,6 +124,8 @@ export default function App() {
 
         console.log('update installed');
         await relaunch();
+      } else {
+        setLastCheckedUpToDate(true);
       }
     })();
   }, []);
@@ -151,6 +161,18 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
+    (async () => {
+      const version = await getVersion();
+      setAppVersion(version);
+      const lastSeen = localStorage.getItem("lastSeenVersion");
+      if (lastSeen !== version) {
+        setShowChangelog(true);
+        localStorage.setItem("lastSeenVersion", version);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
     invoke<Entry[]>("get_entries")
     .then((entries) => {
       setEntries(entries);
@@ -169,7 +191,7 @@ export default function App() {
     window.addEventListener('mousemove', handleUserActivity);
     window.addEventListener('keydown', handleUserActivity);
     window.addEventListener('click', handleUserActivity);
-    window.addEventListener('scroll', handleUserActivity);
+    window.addEventListener('scroll', handleUserActivity); 
 
     // Cleanup
     return () => {
@@ -200,8 +222,78 @@ export default function App() {
 
 
 useEffect(() => {
+  (async () => {
+    const update = await check();
+    if (update) {
+      console.log(
+        `found update ${update.version} from ${update.date} with notes ${update.body}`
+      );
+      let downloaded = 0;
+      let contentLength = 0;
+
+      await update.downloadAndInstall((event) => {
+        switch (event.event) {
+          case 'Started':
+            contentLength = event.data?.contentLength ?? 0;
+            console.log(`started downloading ${event.data.contentLength} bytes`);
+            break;
+          case 'Progress':
+            downloaded += event.data.chunkLength;
+            console.log(`downloaded ${downloaded} from ${contentLength}`);
+            break;
+          case 'Finished':
+            console.log('update installed');
+            break;
+        }
+      });
+
+      console.log('update installed');
+      await relaunch();
+    }
+  })();
+}, []);
+
+useEffect(() => {
   const unlisten = listen('open-settings', () => {
     setShowSettings(true);
+  });
+
+  return () => {
+    unlisten.then((f) => f());
+  };
+}, []);
+
+useEffect(() => {
+  const unlisten = listen('check-for-updates', async () => {
+    const update = await check();
+    if (!update) {
+      setShowChangelog(true);
+      return;
+    }
+    console.log(
+      `found update ${update.version} from ${update.date} with notes ${update.body}`
+    );
+    let downloaded = 0;
+    let contentLength = 0;
+
+    await update.downloadAndInstall((event) => {
+      switch (event.event) {
+        case 'Started':
+          contentLength = event.data?.contentLength ?? 0;
+          console.log(`started downloading ${event.data.contentLength} bytes`);
+          break;
+        case 'Progress':
+          downloaded += event.data.chunkLength;
+          console.log(`downloaded ${downloaded} from ${contentLength}`);
+          break;
+        case 'Finished':
+          console.log('update installed');
+          break;
+      }
+    });
+
+    console.log('update installed');
+    await relaunch();
   });
 
   return () => {
@@ -226,6 +318,26 @@ useEffect(() => {
         color: 'var(--text-color)'
       }}
     >
+      <Modal
+        visible={showChangelog}
+        header={
+          lastCheckedUpToDate
+            ? "You're up to date!"
+            : `What's new in v${appVersion}!`
+        }
+        body={
+          lastCheckedUpToDate
+            ? <>The latest version is {appVersion} and you're on it.</>
+            : (
+              <ul className="list-disc list-outside pl-5 space-y-2 marker:mr-2">
+                {((changelog as Changelog)[appVersion] || []).map((item, idx) => (
+                  <li key={idx}>{item}</li>
+                ))}
+              </ul>
+            )
+        }
+        onClose={() => setShowChangelog(false)}
+      />
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <div className="sidebar">
         <div className="sidebar-header">
