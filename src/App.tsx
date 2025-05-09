@@ -151,14 +151,7 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    invoke<Entry[]>("get_entries")
-      .then((entries) => {
-        setEntries(entries);
-        if (entries.length > 0) {
-          setSelectedId(entries[0].id);
-        }
-      })
-      .catch((err) => console.error("Failed to fetch entries:", err));
+    refreshEntries();
   }, []);
 
   useEffect(() => {
@@ -215,7 +208,6 @@ export default function App() {
         color: 'var(--text-color)'
       }}
     >
-      <TitleBar />
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <div className="sidebar">
         <div className="sidebar-header">

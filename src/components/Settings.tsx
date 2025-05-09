@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { Select } from './Select';
+import { getVersion } from '@tauri-apps/api/app';
 
 type Theme = 'system' | 'light' | 'dark';
 
@@ -16,6 +17,7 @@ export default function Settings({ currentTheme, onThemeChange, onImportComplete
   const [exportStatus, setExportStatus] = useState<string>('');
   const [importStatus, setImportStatus] = useState<string>('');
   const [deleteStatus, setDeleteStatus] = useState<string>('');
+  const [appVersion, setAppVersion] = useState<string | null>(null);
 
   const handleExport = async () => {
     try {
@@ -72,6 +74,11 @@ export default function Settings({ currentTheme, onThemeChange, onImportComplete
       }
     }
   };
+
+  
+useEffect(() => {
+  getVersion().then(setAppVersion);
+}, []);
 
   return (
     <div style={{ padding: '1rem' }}>
@@ -155,6 +162,9 @@ export default function Settings({ currentTheme, onThemeChange, onImportComplete
             {deleteStatus}
           </div>
         )}
+      </div>
+      <div style={{ marginTop: '2rem', fontSize: '0.9rem', color: 'var(--text-color)' }}>
+        Version: {appVersion}
       </div>
     </div>
   );
