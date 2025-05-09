@@ -8,9 +8,11 @@ use serde::Serialize;
 use std::fs;
 use std::path::PathBuf;
 use tauri::path::BaseDirectory;
-use tauri::Manager;
 use tauri_plugin_dialog;
 use uuid::Uuid;
+use tauri::Manager;
+use tauri::menu::{MenuBuilder, SubmenuBuilder, MenuItemBuilder, AboutMetadata};
+use tauri::Emitter;
 
 fn app_support_dir() -> Result<PathBuf, String> {
     Ok(data_local_dir()
@@ -214,6 +216,30 @@ fn delete_entry(id: i32) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .setup(|app| {
+            let settings = MenuItemBuilder::new("Settings…")
+                .id("settings")
+                .accelerator("Cmd+,")
+                .build(app)?;
+            let app_submenu = SubmenuBuilder::new(app, "Journal")
+                .about(Some(AboutMetadata::default()))
+                .separator()
+                .item(&settings)
+                .separator()
+                .quit()
+                .build()?;
+            let menu = MenuBuilder::new(app)
+                .items(&[&app_submenu])
+                .build()?;
+            app.set_menu(menu)?;
+
+            Ok(())
+        })
+        .on_menu_event(|window, menu_event| {
+            if menu_event.id() == "settings" {
+                window.emit("open-settings", {}).unwrap();
+            }
+        })
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
@@ -227,5 +253,5 @@ fn main() {
             delete_all_entries
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("error while running Journal");
 }

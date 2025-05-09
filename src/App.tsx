@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import TitleBar from './components/TitleBar';
 import EntryEditor from "./components/EntryEditor";
 import EntryList from "./components/EntryList";
 import Settings from "./components/Settings";
@@ -9,6 +8,7 @@ import { createNewEntry } from './lib/createEntry';
 import { X } from 'lucide-react';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { listen } from '@tauri-apps/api/event';
 
 type Entry = {
   id: number;
@@ -151,7 +151,14 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    refreshEntries();
+    invoke<Entry[]>("get_entries")
+    .then((entries) => {
+      setEntries(entries);
+      if (entries.length > 0) {
+        setSelectedId(entries[0].id);
+      }
+    })
+    .catch((err) => console.error("Failed to fetch entries:", err));
   }, []);
 
   useEffect(() => {
@@ -190,6 +197,17 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+
+useEffect(() => {
+  const unlisten = listen('open-settings', () => {
+    setShowSettings(true);
+  });
+
+  return () => {
+    unlisten.then((f) => f());
+  };
+}, []);
 
   return (
     <div 
