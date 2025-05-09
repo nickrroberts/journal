@@ -31,13 +31,12 @@
   "app": {
     "macOSPrivateApi": true,
     "windows": [
-      { "title": "Journal", 
-      "decorations": false,
-      "transparent": true,
+      { "title": "", 
+      "decorations": true,
+      "transparent": false,
       "width": 1200, 
       "height": 900,
-      "resizable": true,
-      "titleBarStyle": "Transparent"
+      "resizable": true
     }
     ],
     "security": { "csp": null }
