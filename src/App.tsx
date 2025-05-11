@@ -130,10 +130,10 @@ export default function App() {
       const version = await getVersion();
       setAppVersion(version);
       const lastSeen = localStorage.getItem("lastSeenVersion");
-      if (lastSeen !== version) {
+      if (lastSeen && lastSeen !== version) {
         setShowChangelog(true);
-        localStorage.setItem("lastSeenVersion", version);
       }
+      localStorage.setItem("lastSeenVersion", version);
     })();
   }, []);
 
