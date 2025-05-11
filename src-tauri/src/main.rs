@@ -14,10 +14,16 @@ use tauri::Manager;
 use tauri_plugin_dialog;
 use uuid::Uuid;
 
+
 fn app_support_dir() -> Result<PathBuf, String> {
-    Ok(data_local_dir()
-        .ok_or("Could not find local data dir")?
-        .join("Journal"))
+    // Use a separate db in development vs. production
+    let base = data_local_dir().ok_or("Could not find local data dir")?;
+    let folder_name = if cfg!(debug_assertions) {
+        "Journal-dev"
+    } else {
+        "Journal"
+    };
+    Ok(base.join(folder_name))
 }
 
 fn init_db() -> Result<rusqlite::Connection, String> {
