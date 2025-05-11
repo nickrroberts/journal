@@ -34,6 +34,8 @@ export default function App() {
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
   const INACTIVITY_DURATION = 60000; // 1 minute of inactivity
 
+  const [showUpToDate, setShowUpToDate] = useState(false);
+
   const refreshEntries = () => {
     invoke<Entry[]>("get_entries")
       .then(setEntries)
@@ -214,7 +216,13 @@ useEffect(() => {
 
 useEffect(() => {
   const unlisten = listen('check-for-updates', async () => {
-    await performUpdateCheck();
+    const update = await check();
+    if (!update) {
+      setShowUpToDate(true);
+      return;
+    }
+    updateRef.current = update;
+    setUpdateInfo({ version: update.version, body: update.body });
   });
 
   return () => {
@@ -248,39 +256,12 @@ const handleInstallUpdate = async () => {
   }
 };
 
-
-
 const handleDismissUpdate = () => setUpdateInfo(null);
 
+const handleDismissUpToDate = () => setShowUpToDate(false);
+
   return (
-    <div 
-      onClick={handleClick}
-      style={{ 
-        display: "flex",
-        flexDirection: "column", 
-        height: "100vh", 
-        margin: 0, 
-        padding: 0, 
-        overflow: "hidden",
-        filter: isBlurred ? "blur(8px)" : "none",
-        transition: "filter 0.3s ease",
-        cursor: isBlurred ? "pointer" : "default",
-        backgroundColor: 'var(--background-color)',
-        color: 'var(--text-color)'
-      }}
-    >
-      <Modal
-        visible={showChangelog}
-        header={`What's new in v${appVersion}!`}
-        body={
-          <ul className="list-disc list-outside pl-5 space-y-2 marker:mr-2">
-            {((changelog as Changelog)[appVersion] || []).map((item, idx) => (
-              <li key={idx}>{item}</li>
-            ))}
-          </ul>
-        }
-        onClose={() => setShowChangelog(false)}
-      />
+    <>
       {updateInfo && (
         <Modal
           visible={true}
@@ -297,72 +278,114 @@ const handleDismissUpdate = () => setUpdateInfo(null);
           }
         />
       )}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <div className="sidebar">
-        <div className="sidebar-header">
-          <NotebookPen onClick={handleCreateNewEntry}
-            className="icon new-entry"
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") handleCreateNewEntry();
-            }}
-            style={{ cursor: "pointer" }}
-            size={20}
-          />
-        </div>  
-        <div className="entry-list-wrapper" style={{ flex: 1, overflowY: 'auto' }}>
-          <EntryList 
-              entries={entries}
-              onSelect={(id) => {
-                setSelectedId(id);
-                setShowSettings(false);
-              }} 
-              activeId={selectedId}
-              refreshEntries={refreshEntries}
-              updateEntryTitle={updateEntryTitle}
-          />
-        </div>
-          <div className="sidebar-footer">
-            <Cog 
-              onClick={() => setShowSettings(!showSettings)}
-              className="icon settings" 
-              size={20}
-            />
-          </div>
-        </div>
-        <div style={{ 
-          flex: 1, 
+      {showUpToDate && (
+        <Modal
+          visible={true}
+          header="You're up to date!"
+          onClose={handleDismissUpToDate}
+          primaryButton={{ label: 'Cool!', onClick: handleDismissUpToDate }}
+          body={
+            <p className="whitespace-pre-line">
+              The latest version is {appVersion} and you're on it 👍
+            </p>
+          }
+        />
+      )}
+      <div 
+        onClick={handleClick}
+        style={{ 
+          display: "flex",
+          flexDirection: "column", 
+          height: "100vh", 
           margin: 0, 
           padding: 0, 
-          height: "100vh", 
-          overflow: "hidden"
-        }}>
-          {showSettings ? (
-            <div className="settings-container">
-              <div className="settings-header">
-                <X
-                  onClick={() => setShowSettings(false)}
-                  size={24}
-                />
-              </div>
-              <Settings 
-                currentTheme={theme}
-                onThemeChange={handleThemeChange}
-                onImportComplete={handleImportComplete}
+          overflow: "hidden",
+          filter: isBlurred ? "blur(8px)" : "none",
+          transition: "filter 0.3s ease",
+          cursor: isBlurred ? "pointer" : "default",
+          backgroundColor: 'var(--background-color)',
+          color: 'var(--text-color)'
+        }}
+      >
+        <Modal
+          visible={showChangelog}
+          header={`What's new in v${appVersion}!`}
+          body={
+            <ul className="list-disc list-outside pl-5 space-y-2 marker:mr-2">
+              {((changelog as Changelog)[appVersion] || []).map((item, idx) => (
+                <li key={idx}>{item}</li>
+              ))}
+            </ul>
+          }
+          onClose={() => setShowChangelog(false)}
+        />
+        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+          <div className="sidebar">
+          <div className="sidebar-header">
+            <NotebookPen onClick={handleCreateNewEntry}
+              className="icon new-entry"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") handleCreateNewEntry();
+              }}
+              style={{ cursor: "pointer" }}
+              size={20}
+            />
+          </div>  
+          <div className="entry-list-wrapper" style={{ flex: 1, overflowY: 'auto' }}>
+            <EntryList 
+                entries={entries}
+                onSelect={(id) => {
+                  setSelectedId(id);
+                  setShowSettings(false);
+                }} 
+                activeId={selectedId}
+                refreshEntries={refreshEntries}
+                updateEntryTitle={updateEntryTitle}
+            />
+          </div>
+            <div className="sidebar-footer">
+              <Cog 
+                onClick={() => setShowSettings(!showSettings)}
+                className="icon settings" 
+                size={20}
               />
             </div>
-          ) : (
-            <EntryEditor 
-              selectedId={selectedId} 
-              refreshEntries={refreshEntries}
-              updateEntryTitle={updateEntryTitle}
-            />
-          )}
-        </div>
+          </div>
+          <div style={{ 
+            flex: 1, 
+            margin: 0, 
+            padding: 0, 
+            height: "100vh", 
+            overflow: "hidden"
+          }}>
+            {showSettings ? (
+              <div className="settings-container">
+                <div className="settings-header">
+                  <X
+                    onClick={() => setShowSettings(false)}
+                    size={24}
+                  />
+                </div>
+                <Settings 
+                  currentTheme={theme}
+                  onThemeChange={handleThemeChange}
+                  onImportComplete={handleImportComplete}
+                />
+              </div>
+            ) : (
+              <EntryEditor 
+                selectedId={selectedId} 
+                refreshEntries={refreshEntries}
+                updateEntryTitle={updateEntryTitle}
+              />
+            )}
+          </div>
 
+        </div>
+        
       </div>
-      
-    </div>
+    </>
   );
 }
