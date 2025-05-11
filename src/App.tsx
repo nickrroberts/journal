@@ -222,6 +222,21 @@ useEffect(() => {
   };
 }, []);
 
+useEffect( () => {
+  const unlistenNew = listen('new-entry', () => {
+    handleCreateNewEntry();
+  })
+
+  const unlistenBlur = listen('blur', () => {
+    setIsBlurred(prev => !prev);
+  });
+
+  return () => {
+    unlistenNew.then(f => f());
+    unlistenBlur.then(f => f());
+  };
+})
+
 const handleInstallUpdate = async () => {
   if (!updateRef.current) return;
   try {
@@ -231,6 +246,8 @@ const handleInstallUpdate = async () => {
     console.error('Update installation failed:', err);
   }
 };
+
+
 
 const handleDismissUpdate = () => setUpdateInfo(null);
 

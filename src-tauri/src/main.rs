@@ -239,7 +239,28 @@ fn main() {
                 .separator()
                 .quit()
                 .build()?;
-            let menu = MenuBuilder::new(app).items(&[&app_submenu]).build()?;
+
+            // --- File menu: New Entry ---
+            let new_entry = MenuItemBuilder::new("New Entry")
+                .id("new_entry")
+                .accelerator("Ctrl+N")
+                .build(app)?;
+            let file_menu = SubmenuBuilder::new(app, "File")
+                .item(&new_entry)
+                .build()?;
+
+            // --- Window menu: Blur ---
+            let blur_item = MenuItemBuilder::new("Blur")
+                .id("blur")
+                .accelerator("Ctrl+B")
+                .build(app)?;
+            let window_menu = SubmenuBuilder::new(app, "Window")
+                .item(&blur_item)
+                .build()?;
+
+            let menu = MenuBuilder::new(app)
+                .items(&[&app_submenu, &file_menu, &window_menu])
+                .build()?;
             app.set_menu(menu)?;
 
             Ok(())
@@ -250,6 +271,12 @@ fn main() {
             }
             if menu_event.id() == "check_updates" {
                 window.emit("check-for-updates", {}).unwrap();
+            }
+            if menu_event.id() == "new_entry" {
+                window.emit("new-entry", {}).unwrap();
+            }
+            if menu_event.id() == "blur" {
+                window.emit("blur", {}).unwrap();
             }
         })
         .plugin(tauri_plugin_updater::Builder::new().build())
