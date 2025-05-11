@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import "./EntryEditor.css";
 import { invoke } from "@tauri-apps/api/core";
+import { EditorContent, EditorContext, useEditor} from '@tiptap/react'
+import Heading from '@tiptap/extension-heading';
+import StarterKit from '@tiptap/starter-kit';
+import { Markdown }  from 'tiptap-markdown'
 
 type Props = {
     selectedId: number | null;
@@ -13,32 +17,52 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
     const [body, setBody] = useState("");
 
     const titleRef = useRef<HTMLTextAreaElement>(null);
-    const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+    const editor = useEditor({
+      immediatelyRender: false,
+      extensions: [
+        StarterKit.configure({ heading: false }),
+        Heading.configure({ levels: [1, 2] }),
+        Markdown.configure({              
+          html:       true,               
+          tightLists: true,                
+          bulletListMarker: '-',          
+        }),
+      ],
+      content: '',
+      onUpdate({ editor }) {
+        const html = editor.getHTML();
+        setBody(html);
+      },
+    });
 
     useEffect(() => {
-        if (selectedId !== null) {
-          invoke<{ title: string; body: string }>("get_entry", { id: selectedId })
-            .then((entry) => {
-              setTitle(entry.title);
-              setBody(entry.body);
-              requestAnimationFrame(() => {
-                if (entry.title.trim().length === 0) {
-                  titleRef.current?.focus();
-                } else {
-                  bodyRef.current?.focus();
-                }
-              });
-            })
-            .catch((err) => console.error("Load error:", err));
-        } else {
-          // Reset the editor when creating a new entry
-          setTitle("");
-          setBody("");
-          requestAnimationFrame(() => {
-            titleRef.current?.focus();
-          });
-        }
-      }, [selectedId]);
+      if (!editor) return;
+
+      if (selectedId !== null) {
+        invoke<{ title: string; body: string }>("get_entry", { id: selectedId })
+          .then((entry) => {
+            setTitle(entry.title);
+            setBody(entry.body || "");
+            editor.commands.setContent(entry.body || '');
+            requestAnimationFrame(() => {
+              if (entry.title.trim().length === 0) {
+                titleRef.current?.focus();
+              } else {
+                editor.commands.focus("end");
+              }
+            });
+          })
+          .catch((err) => console.error("Load error:", err));
+      } else {
+        setTitle("");
+        setBody("");
+        editor.commands.clearContent();
+        requestAnimationFrame(() => {
+          titleRef.current?.focus();
+        });
+      }
+    }, [selectedId, editor]);
   
     useEffect(() => {
       const timeout = setTimeout(() => {
@@ -64,6 +88,8 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
         updateEntryTitle(selectedId, newTitle);
       }
     };
+
+
   
     return (
       <>
@@ -79,13 +105,27 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
             />
           </label>
           <label className="editor-body-container">
-            <textarea
-              ref={bodyRef}
-              className="editor-body"
-              placeholder="Write your journal entry..."
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-            />
+            <EditorContext.Provider value={{ editor }}>
+              <EditorContent
+                editor={editor}
+                className="editor-body"
+                onClick={() => editor?.commands.focus()}
+                style={{
+                  flex: 1,
+                  border: "none",
+                  outline: "none",
+                  boxShadow: "none",
+                  width: "100%",
+                  height: "100%",
+                  resize: "none",
+                  padding: "0",
+                  boxSizing: "border-box",
+                  overflow: "auto",
+                  caretColor: "auto",
+                  userSelect: "text"
+                }}
+              />
+            </EditorContext.Provider>
           </label>
         </form>
       </>

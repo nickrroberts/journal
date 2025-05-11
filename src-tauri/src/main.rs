@@ -15,6 +15,7 @@ use tauri_plugin_dialog;
 use uuid::Uuid;
 
 
+
 fn app_support_dir() -> Result<PathBuf, String> {
     // Use a separate db in development vs. production
     let base = data_local_dir().ok_or("Could not find local data dir")?;
@@ -221,6 +222,7 @@ fn delete_entry(id: i32) -> Result<(), String> {
 }
 
 fn main() {
+
     tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
@@ -231,7 +233,7 @@ fn main() {
             let check_updates = MenuItemBuilder::new("Check for updates…")
                 .id("check_updates")
                 .build(app)?;
-            let app_submenu = SubmenuBuilder::new(app, "Journal")
+            let app_submenu = SubmenuBuilder::new(app, &app.package_info().name)
                 .about(Some(AboutMetadata::default()))
                 .separator()
                 .item(&settings)
@@ -249,6 +251,43 @@ fn main() {
                 .item(&new_entry)
                 .build()?;
 
+            // --- Edit menu: custom with MenuItemBuilder ---------------------------
+            let undo = MenuItemBuilder::new("Undo")
+                .id("undo")
+                .accelerator("CmdOrCtrl+Z")
+                .build(app)?;
+            let redo = MenuItemBuilder::new("Redo")
+                .id("redo")
+                .accelerator("Shift+CmdOrCtrl+Z")
+                .build(app)?;
+            let cut = MenuItemBuilder::new("Cut")
+                .id("cut")
+                .accelerator("CmdOrCtrl+X")
+                .build(app)?;
+            let copy = MenuItemBuilder::new("Copy")
+                .id("copy")
+                .accelerator("CmdOrCtrl+C")
+                .build(app)?;
+            let paste = MenuItemBuilder::new("Paste")
+                .id("paste")
+                .accelerator("CmdOrCtrl+V")
+                .build(app)?;
+            let select_all = MenuItemBuilder::new("Select All")
+                .id("select_all")
+                .accelerator("CmdOrCtrl+A")
+                .build(app)?;
+
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .item(&undo)
+                .item(&redo)
+                .separator()
+                .item(&cut)
+                .item(&copy)
+                .item(&paste)
+                .separator()
+                .item(&select_all)
+                .build()?;
+
             // --- Window menu: Blur ---
             let blur_item = MenuItemBuilder::new("Blur")
                 .id("blur")
@@ -259,24 +298,28 @@ fn main() {
                 .build()?;
 
             let menu = MenuBuilder::new(app)
-                .items(&[&app_submenu, &file_menu, &window_menu])
+                .items(&[
+                    &app_submenu,
+                    &file_menu,
+                    &edit_menu,
+                    &window_menu,
+                ])
                 .build()?;
+
             app.set_menu(menu)?;
 
             Ok(())
         })
         .on_menu_event(|window, menu_event| {
-            if menu_event.id() == "settings" {
-                window.emit("open-settings", {}).unwrap();
-            }
-            if menu_event.id() == "check_updates" {
-                window.emit("check-for-updates", {}).unwrap();
-            }
-            if menu_event.id() == "new_entry" {
-                window.emit("new-entry", {}).unwrap();
-            }
-            if menu_event.id() == "blur" {
-                window.emit("blur", {}).unwrap();
+            match menu_event.id().0.as_str() {
+                "settings" => window.emit("open-settings", {}).unwrap(),
+                "check_updates" => window.emit("check-for-updates", {}).unwrap(),
+                "new_entry" => window.emit("new-entry", {}).unwrap(),
+                "blur" => window.emit("blur", {}).unwrap(),
+                "undo" | "redo" | "cut" | "copy" | "paste" | "select_all" => {
+                    window.get_webview_window("main").unwrap().eval(&format!("document.execCommand('{}')", menu_event.id().0)).unwrap();
+                }
+                _ => {}
             }
         })
         .plugin(tauri_plugin_updater::Builder::new().build())
