@@ -7,12 +7,12 @@ use rusqlite::params;
 use serde::Serialize;
 use std::fs;
 use std::path::PathBuf;
+use tauri::menu::{AboutMetadata, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::path::BaseDirectory;
+use tauri::Emitter;
+use tauri::Manager;
 use tauri_plugin_dialog;
 use uuid::Uuid;
-use tauri::Manager;
-use tauri::menu::{MenuBuilder, SubmenuBuilder, MenuItemBuilder, AboutMetadata};
-use tauri::Emitter;
 
 fn app_support_dir() -> Result<PathBuf, String> {
     Ok(data_local_dir()
@@ -216,6 +216,7 @@ fn delete_entry(id: i32) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let settings = MenuItemBuilder::new("Settings…")
                 .id("settings")
@@ -232,9 +233,7 @@ fn main() {
                 .separator()
                 .quit()
                 .build()?;
-            let menu = MenuBuilder::new(app)
-                .items(&[&app_submenu])
-                .build()?;
+            let menu = MenuBuilder::new(app).items(&[&app_submenu]).build()?;
             app.set_menu(menu)?;
 
             Ok(())

@@ -1,11 +1,11 @@
 {
-  "version": "0.1.0",
-  "notes": "Update 0.1.0",
-  "pub_date": "2025-05-09T14:01:52Z",
+  "version": "0.1.4",
+  "notes": "Update 0.1.4",
+  "pub_date": "2025-05-09T21:17:17Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "",
-      "url": "https://github.com/nickrroberts/journal/releases/latest/download/Journal.app.zip"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbUQwZjBXRllJbkoyOFdPQlJRYnBKZEpiRm1CSlE4SHVEdGdZc051MWttT0dOUUozN1E0Ym5WS3ZKbk5EL1ZvU0FJc0c2cGZwUWZPVy9uTXdMb3VWSHNlQzVRczV0T2dZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzQ2ODI1NDM3CWZpbGU6Sm91cm5hbC5hcHAudGFyLmd6CkpkYUNERzNscnZlSlFZdXpSb1RsWlB2UlU4S1RKdVBscERIeHVrN1dJWWszc2hPdy8yblZTRU1zVEhZTmx5UzVTdVBVSHhNQnUzZmRjK0h6YWtBSkJBPT0K",
+      "url": "https://github.com/nickrroberts/journal/releases/latest/download/Journal.app.tar.gz"
     }
   }
 }

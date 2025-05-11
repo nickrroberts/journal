@@ -31,7 +31,6 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>('system');
   const [showChangelog, setShowChangelog] = useState(false);
   const [appVersion, setAppVersion] = useState<string>("");
-  const [lastCheckedUpToDate, setLastCheckedUpToDate] = useState(false);
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
   const INACTIVITY_DURATION = 60000; // 1 minute of inactivity
 
@@ -95,40 +94,6 @@ export default function App() {
       console.error('Failed to create new entry:', err);
     }
   };
-
-  useEffect(() => {
-    (async () => {
-      const update = await check();
-      if (update) {
-        console.log(
-          `found update ${update.version} from ${update.date} with notes ${update.body}`
-        );
-        let downloaded = 0;
-        let contentLength = 0;
-
-        await update.downloadAndInstall((event) => {
-          switch (event.event) {
-            case 'Started':
-              contentLength = event.data?.contentLength ?? 0;
-              console.log(`started downloading ${event.data.contentLength} bytes`);
-              break;
-            case 'Progress':
-              downloaded += event.data.chunkLength;
-              console.log(`downloaded ${downloaded} from ${contentLength}`);
-              break;
-            case 'Finished':
-              console.log('download finished');
-              break;
-          }
-        });
-
-        console.log('update installed');
-        await relaunch();
-      } else {
-        setLastCheckedUpToDate(true);
-      }
-    })();
-  }, []);
 
   useEffect(() => {
     // Load saved theme preference
@@ -222,38 +187,6 @@ export default function App() {
 
 
 useEffect(() => {
-  (async () => {
-    const update = await check();
-    if (update) {
-      console.log(
-        `found update ${update.version} from ${update.date} with notes ${update.body}`
-      );
-      let downloaded = 0;
-      let contentLength = 0;
-
-      await update.downloadAndInstall((event) => {
-        switch (event.event) {
-          case 'Started':
-            contentLength = event.data?.contentLength ?? 0;
-            console.log(`started downloading ${event.data.contentLength} bytes`);
-            break;
-          case 'Progress':
-            downloaded += event.data.chunkLength;
-            console.log(`downloaded ${downloaded} from ${contentLength}`);
-            break;
-          case 'Finished':
-            console.log('update installed');
-            break;
-        }
-      });
-
-      console.log('update installed');
-      await relaunch();
-    }
-  })();
-}, []);
-
-useEffect(() => {
   const unlisten = listen('open-settings', () => {
     setShowSettings(true);
   });
@@ -263,43 +196,43 @@ useEffect(() => {
   };
 }, []);
 
+const updateRef = useRef<any>(null);
+const [updateInfo, setUpdateInfo] = useState<{ version: string; body?: string | null } | null>(null);
+
+const performUpdateCheck = async () => {
+  const update = await check();
+  if (!update) {
+    return;
+  }
+  updateRef.current = update;
+  setUpdateInfo({ version: update.version, body: update.body });
+};
+
+useEffect(() => {
+  performUpdateCheck();
+}, []);
+
 useEffect(() => {
   const unlisten = listen('check-for-updates', async () => {
-    const update = await check();
-    if (!update) {
-      setShowChangelog(true);
-      return;
-    }
-    console.log(
-      `found update ${update.version} from ${update.date} with notes ${update.body}`
-    );
-    let downloaded = 0;
-    let contentLength = 0;
-
-    await update.downloadAndInstall((event) => {
-      switch (event.event) {
-        case 'Started':
-          contentLength = event.data?.contentLength ?? 0;
-          console.log(`started downloading ${event.data.contentLength} bytes`);
-          break;
-        case 'Progress':
-          downloaded += event.data.chunkLength;
-          console.log(`downloaded ${downloaded} from ${contentLength}`);
-          break;
-        case 'Finished':
-          console.log('update installed');
-          break;
-      }
-    });
-
-    console.log('update installed');
-    await relaunch();
+    await performUpdateCheck();
   });
 
   return () => {
     unlisten.then((f) => f());
   };
 }, []);
+
+const handleInstallUpdate = async () => {
+  if (!updateRef.current) return;
+  try {
+    await updateRef.current.downloadAndInstall();
+    await relaunch();
+  } catch (err) {
+    console.error('Update installation failed:', err);
+  }
+};
+
+const handleDismissUpdate = () => setUpdateInfo(null);
 
   return (
     <div 
@@ -320,24 +253,32 @@ useEffect(() => {
     >
       <Modal
         visible={showChangelog}
-        header={
-          lastCheckedUpToDate
-            ? "You're up to date!"
-            : `What's new in v${appVersion}!`
-        }
+        header={`What's new in v${appVersion}!`}
         body={
-          lastCheckedUpToDate
-            ? <>The latest version is {appVersion} and you're on it.</>
-            : (
-              <ul className="list-disc list-outside pl-5 space-y-2 marker:mr-2">
-                {((changelog as Changelog)[appVersion] || []).map((item, idx) => (
-                  <li key={idx}>{item}</li>
-                ))}
-              </ul>
-            )
+          <ul className="list-disc list-outside pl-5 space-y-2 marker:mr-2">
+            {((changelog as Changelog)[appVersion] || []).map((item, idx) => (
+              <li key={idx}>{item}</li>
+            ))}
+          </ul>
         }
         onClose={() => setShowChangelog(false)}
       />
+      {updateInfo && (
+        <Modal
+          visible={true}
+          header={`A newer version of Journal is available (${updateInfo.version})`}
+          onClose={handleDismissUpdate}
+          primaryButton={{ label: 'Install & Restart', onClick: handleInstallUpdate }}
+          secondaryButton={{ label: 'Later', onClick: handleDismissUpdate }}
+          body={
+            <>
+            <p className="whitespace-pre-line text-black">
+              {updateInfo.body ?? 'A new version is available.'}
+            </p>
+            </>
+          }
+        />
+      )}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <div className="sidebar">
         <div className="sidebar-header">
