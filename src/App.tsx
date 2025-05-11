@@ -239,6 +239,7 @@ useEffect( () => {
 
 const handleInstallUpdate = async () => {
   if (!updateRef.current) return;
+  setUpdateInfo(null);
   try {
     await updateRef.current.downloadAndInstall();
     await relaunch();

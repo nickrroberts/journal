@@ -13,5 +13,9 @@
     "Added update pipeline so you don't have to download new builds by hand!",
     "Load the latest entry by default",
     "Minor changes to the title bar"
+  ],
+  "0.1.6": [
+    "Add menu bar items for macOS (File, Window)",
+    "Improvements to the update pipeline for new builds"
   ]
 }
