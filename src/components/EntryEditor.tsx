@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useEffect, useRef } from "react";
 import "./EntryEditor.css";
 import { invoke } from "@tauri-apps/api/core";
@@ -5,6 +6,36 @@ import { EditorContent, EditorContext, useEditor} from '@tiptap/react'
 import Heading from '@tiptap/extension-heading';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown }  from 'tiptap-markdown'
+import Link from '@tiptap/extension-link';
+import { Extension } from '@tiptap/core';
+import { Plugin } from 'prosemirror-state';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { readText } from '@tauri-apps/plugin-clipboard-manager';
+
+const PasteLinkOnSelection = Extension.create({
+  name: 'pasteLinkOnSelection',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        props: {
+          handlePaste(view, event) {
+            const text = event.clipboardData?.getData('text/plain');
+            const { empty } = view.state.selection;
+            if (text?.match(/^https?:\/\//) && !empty) {
+              const { state, dispatch } = view;
+              const { from, to } = state.selection;
+              const linkMark = state.schema.marks.link.create({ href: text });
+              const tr = state.tr.addMark(from, to, linkMark);
+              dispatch(tr);
+              return true;
+            }
+            return false;
+          },
+        },
+      }),
+    ];
+  },
+});
 
 type Props = {
     selectedId: number | null;
@@ -22,6 +53,12 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
       immediatelyRender: false,
       extensions: [
         StarterKit.configure({ heading: false }),
+        Link.configure({
+          autolink: true,
+          linkOnPaste: true,
+          openOnClick: true,
+        }),
+        PasteLinkOnSelection,
         Heading.configure({ levels: [1, 2] }),
         Markdown.configure({              
           html:       true,               
@@ -89,7 +126,49 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
       }
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      switch (e.key.toLowerCase()) {
+        case 'x':
+          document.execCommand('cut');
+          e.preventDefault();
+          break;
+        case 'c':
+          document.execCommand('copy');
+          e.preventDefault();
+          break;
+        case 'v': {
+          e.preventDefault();
+          readText().then((text) => {
+            if (!editor) return;
+            const { empty } = editor.state.selection;
+            if (!empty && /^https?:\/\//.test(text)) {
+              editor.chain().focus().extendMarkRange('link').setLink({ href: text }).run();
+            } else {
+              editor.chain().focus().insertContent(text).run();
+            }
+          });
+          break;
+        }
+        case 'z':
+          document.execCommand(e.shiftKey ? 'redo' : 'undo');
+          e.preventDefault();
+          break;
+        default:
+          break;
+      }
+    };
 
+    const handleLinkClick = (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'A') {
+        e.preventDefault();
+        const href = (target as HTMLAnchorElement).href;
+        if (href) {
+          openUrl(href);
+        }
+      }
+    };
   
     return (
       <>
@@ -104,12 +183,26 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
               rows={1}
             />
           </label>
-          <label className="editor-body-container">
+          <label
+            className="editor-body-container"
+          >
             <EditorContext.Provider value={{ editor }}>
               <EditorContent
                 editor={editor}
+                onKeyDown={handleKeyDown}
                 className="editor-body"
-                onClick={() => editor?.commands.focus()}
+                onClick={(e) => {
+                  editor?.commands.focus();
+                  handleLinkClick(e);
+                }}
+                onPaste={(event) => {
+                  const text = event.clipboardData.getData('text/plain');
+                  const urlPattern = /^https?:\/\/\S+$/;
+                  if (editor && urlPattern.test(text) && !editor.state.selection.empty) {
+                    event.preventDefault();
+                    editor.chain().focus().extendMarkRange('link').setLink({ href: text }).run();
+                  }
+                }}
                 style={{
                   flex: 1,
                   border: "none",

@@ -14,8 +14,6 @@ use tauri::Manager;
 use tauri_plugin_dialog;
 use uuid::Uuid;
 
-
-
 fn app_support_dir() -> Result<PathBuf, String> {
     // Use a separate db in development vs. production
     let base = data_local_dir().ok_or("Could not find local data dir")?;
@@ -222,8 +220,9 @@ fn delete_entry(id: i32) -> Result<(), String> {
 }
 
 fn main() {
-
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let settings = MenuItemBuilder::new("Settings…")
@@ -247,9 +246,7 @@ fn main() {
                 .id("new_entry")
                 .accelerator("Ctrl+N")
                 .build(app)?;
-            let file_menu = SubmenuBuilder::new(app, "File")
-                .item(&new_entry)
-                .build()?;
+            let file_menu = SubmenuBuilder::new(app, "File").item(&new_entry).build()?;
 
             // --- Edit menu: custom with MenuItemBuilder ---------------------------
             let undo = MenuItemBuilder::new("Undo")
@@ -298,29 +295,26 @@ fn main() {
                 .build()?;
 
             let menu = MenuBuilder::new(app)
-                .items(&[
-                    &app_submenu,
-                    &file_menu,
-                    &edit_menu,
-                    &window_menu,
-                ])
+                .items(&[&app_submenu, &file_menu, &edit_menu, &window_menu])
                 .build()?;
 
             app.set_menu(menu)?;
 
             Ok(())
         })
-        .on_menu_event(|window, menu_event| {
-            match menu_event.id().0.as_str() {
-                "settings" => window.emit("open-settings", {}).unwrap(),
-                "check_updates" => window.emit("check-for-updates", {}).unwrap(),
-                "new_entry" => window.emit("new-entry", {}).unwrap(),
-                "blur" => window.emit("blur", {}).unwrap(),
-                "undo" | "redo" | "cut" | "copy" | "paste" | "select_all" => {
-                    window.get_webview_window("main").unwrap().eval(&format!("document.execCommand('{}')", menu_event.id().0)).unwrap();
-                }
-                _ => {}
+        .on_menu_event(|window, menu_event| match menu_event.id().0.as_str() {
+            "settings" => window.emit("open-settings", {}).unwrap(),
+            "check_updates" => window.emit("check-for-updates", {}).unwrap(),
+            "new_entry" => window.emit("new-entry", {}).unwrap(),
+            "blur" => window.emit("blur", {}).unwrap(),
+            "undo" | "redo" | "cut" | "copy" | "paste" | "select_all" => {
+                window
+                    .get_webview_window("main")
+                    .unwrap()
+                    .eval(&format!("document.execCommand('{}')", menu_event.id().0))
+                    .unwrap();
             }
+            _ => {}
         })
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
