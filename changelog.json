@@ -20,5 +20,10 @@
   ],
   "0.1.7": [
     "Markdown-style editing! Bold, italicize, create bulleted lists, and more."
+  ],
+  "0.1.8": [
+    "Styling and font updates!",
+    "Dates!",
+    "A collapsible sidebar!"
   ]
 }
