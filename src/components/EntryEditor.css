@@ -1,16 +1,17 @@
 .editor {
-    height: calc(100vh - 3rem);
+    height: 100vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding: 2rem;
+    padding: 2rem 2rem 0 2rem;
+    font-family: Georgia, serif;
     background-color: var(--background-color);
     color: var(--text-color);
   }
   
   .editor-title {
     width: 100%;
-    padding: 1rem 0;
+    padding-top: 1rem;
     font-size: 1.5rem;
     border: none;
     outline: none;

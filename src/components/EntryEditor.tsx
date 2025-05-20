@@ -207,6 +207,7 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
           </label>
           <label
             className="editor-body-container font-sans"
+            style={{ flex: 1 }}
           >
             <EditorContext.Provider value={{ editor }}>
               <EditorContent
@@ -231,7 +232,6 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
                   outline: "none",
                   boxShadow: "none",
                   width: "100%",
-                  height: "100%",
                   resize: "none",
                   padding: "0",
                   boxSizing: "border-box",
