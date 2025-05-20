@@ -76,6 +76,12 @@ export default function EntryList({
               }}
             >
               {entry.title || "Untitled"}
+              <time
+              dateTime={entry.created_at}
+              className="text-xs text-gray-500 block"
+              >
+                {new Date(entry.created_at).toLocaleDateString()}
+              </time>
             </button>
               <Tooltip.Root
                 open={menuForId === entry.id}

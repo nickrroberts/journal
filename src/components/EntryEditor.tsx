@@ -46,6 +46,7 @@ type Props = {
 export default function EntryEditor({ selectedId, refreshEntries, updateEntryTitle }: Props) {
     const [title, setTitle] = useState("");
     const [body, setBody] = useState("");
+    const [createdAt, setCreatedAt] = useState<string | null>(null);
 
     const titleRef = useRef<HTMLTextAreaElement>(null);
 
@@ -77,10 +78,11 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
       if (!editor) return;
 
       if (selectedId !== null) {
-        invoke<{ title: string; body: string }>("get_entry", { id: selectedId })
+        invoke<{ title: string; body: string; created_at: string }>("get_entry", { id: selectedId })
           .then((entry) => {
             setTitle(entry.title);
             setBody(entry.body || "");
+            setCreatedAt(entry.created_at);
             editor.commands.setContent(entry.body || '');
             requestAnimationFrame(() => {
               if (entry.title.trim().length === 0) {
@@ -94,12 +96,20 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
       } else {
         setTitle("");
         setBody("");
+        setCreatedAt(null);
         editor.commands.clearContent();
         requestAnimationFrame(() => {
           titleRef.current?.focus();
         });
       }
     }, [selectedId, editor]);
+  // Ensure title textarea grows to fit initial content
+  useEffect(() => {
+    if (titleRef.current) {
+      titleRef.current.style.height = 'auto';
+      titleRef.current.style.height = `${titleRef.current.scrollHeight}px`;
+    }
+  }, [title]);
   
     useEffect(() => {
       const timeout = setTimeout(() => {
@@ -119,12 +129,15 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
     }, [title, body, selectedId, refreshEntries]);
   
     const handleTitleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const newTitle = e.target.value;
-      setTitle(newTitle);
-      if (selectedId !== null) {
-        updateEntryTitle(selectedId, newTitle);
-      }
-    };
+     // Auto-resize textarea height
+     e.currentTarget.style.height = 'auto';
+     e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+     const newTitle = e.currentTarget.value;
+     setTitle(newTitle);
+     if (selectedId !== null) {
+       updateEntryTitle(selectedId, newTitle);
+     }
+   };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
@@ -172,19 +185,28 @@ export default function EntryEditor({ selectedId, refreshEntries, updateEntryTit
   
     return (
       <>
-        <form className="editor" onSubmit={(e) => e.preventDefault()}>
+        <form className="editor " onSubmit={(e) => e.preventDefault()}>
+        {createdAt && (
+              <time
+                dateTime={createdAt}
+                className="text-sm text-gray-500 mt-1 block"
+              >
+                {new Date(createdAt).toLocaleDateString()}
+              </time>
+            )}
           <label>
             <textarea
               ref={titleRef}
-              className="editor-title"
+              className="editor-title font-serif font-bold text-2xl resize-none overflow-hidden"
               placeholder="Title"
               value={title}
-              onChange={handleTitleChange}
+              onInput={handleTitleChange}
               rows={1}
+              style={{ height: 'auto' }}
             />
           </label>
           <label
-            className="editor-body-container"
+            className="editor-body-container font-sans"
           >
             <EditorContext.Provider value={{ editor }}>
               <EditorContent
