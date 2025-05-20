@@ -3,15 +3,16 @@ import { getVersion } from "@tauri-apps/api/app";
 import EntryEditor from "./components/EntryEditor";
 import EntryList from "./components/EntryList";
 import Settings from "./components/Settings";
+import Modal from "./components/Modal";
 import { invoke } from "@tauri-apps/api/core";
-import { NotebookPen, Cog } from 'lucide-react';
+import { NotebookPen, Cog, ChevronLeft, ChevronRight } from 'lucide-react';
 import { createNewEntry } from './lib/createEntry';
 import { X } from 'lucide-react';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { listen } from '@tauri-apps/api/event';
 import changelog from "../changelog.json";
-import Modal from "./components/Modal";
+
 
 type Changelog = Record<string, string[]>;
 
@@ -33,6 +34,7 @@ export default function App() {
   const [appVersion, setAppVersion] = useState<string>("");
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
   const INACTIVITY_DURATION = 60000; // 1 minute of inactivity
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const [showUpToDate, setShowUpToDate] = useState(false);
 
@@ -320,8 +322,14 @@ const handleDismissUpToDate = () => setShowUpToDate(false);
           onClose={() => setShowChangelog(false)}
         />
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-          <div className="sidebar">
-          <div className="sidebar-header">
+          <div className="sidebar" style={{
+            width: isCollapsed ? "50px" : "250px",
+            transition: "width 0.3s ease",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column"
+          }}>
+          <div className="sidebar-header" style={{ opacity: isCollapsed ? 0 : 1, transition: "opacity 0.2s ease" }}>
             <NotebookPen onClick={handleCreateNewEntry}
               className="icon new-entry"
               role="button"
@@ -333,7 +341,7 @@ const handleDismissUpToDate = () => setShowUpToDate(false);
               size={20}
             />
           </div>  
-          <div className="entry-list-wrapper" style={{ flex: 1, overflowY: 'auto' }}>
+          <div className="entry-list-wrapper" style={{ flex: 1, overflowY: isCollapsed ? 'hidden' : 'auto', opacity: isCollapsed ? 0 : 1, transition: "opacity 0.2s ease" }}>
             <EntryList 
                 entries={entries}
                 onSelect={(id) => {
@@ -345,7 +353,7 @@ const handleDismissUpToDate = () => setShowUpToDate(false);
                 updateEntryTitle={updateEntryTitle}
             />
           </div>
-            <div className="sidebar-footer">
+            <div className="sidebar-footer" style={{ opacity: isCollapsed ? 0 : 1, transition: "opacity 0.2s ease" }}>
               <Cog 
                 onClick={() => setShowSettings(!showSettings)}
                 className="icon settings" 
@@ -353,6 +361,28 @@ const handleDismissUpToDate = () => setShowUpToDate(false);
               />
             </div>
           </div>
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            style={{
+              position: "absolute",
+              left: isCollapsed ? "42px" : "242px", // Adjust left position based on collapsed state
+              top: "50%", // Vertically center
+              transform: "translateY(-50%)", // Adjust for button height
+              background: "var(--background-color)",
+              border: "1px solid var(--border-color)",
+              borderRadius: "50%",
+              cursor: "pointer",
+              padding: "0.25rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--text-color)",
+              zIndex: 10, // Ensure button is above other content
+              transition: "left 0.3s ease, background-color 0.3s ease, border-color 0.3s ease"
+            }}
+          >
+            {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
           <div style={{ 
             flex: 1, 
             margin: 0, 

@@ -17,5 +17,8 @@
   "0.1.6": [
     "Add menu bar items for macOS (File, Window)",
     "Improvements to the update pipeline for new builds"
+  ],
+  "0.1.7": [
+    "Markdown-style editing! Bold, italicize, create bulleted lists, and more."
   ]
 }

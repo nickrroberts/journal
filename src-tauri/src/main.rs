@@ -244,7 +244,7 @@ fn main() {
             // --- File menu: New Entry ---
             let new_entry = MenuItemBuilder::new("New Entry")
                 .id("new_entry")
-                .accelerator("Ctrl+N")
+                .accelerator("CmdOrCtrl+N")
                 .build(app)?;
             let file_menu = SubmenuBuilder::new(app, "File").item(&new_entry).build()?;
 
