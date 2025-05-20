@@ -71,12 +71,18 @@ export default function EntryList({
                 padding: "0.5rem 0.75rem",
                 cursor: "pointer",
                 fontWeight: 500,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis"
               }}
             >
-              {entry.title || "Untitled"}
+              <span
+                style={{
+                  display: 'block',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {entry.title || 'Untitled'}
+              </span>
               <time
               dateTime={entry.created_at}
               className="text-xs text-gray-500 block"
