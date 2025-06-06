@@ -121,13 +121,27 @@ impl KeychainManager {
 
     pub fn detect_existing_key_file() -> Result<Option<PathBuf>, KeychainError> {
         debug!("Checking for existing key file");
-        let key_file_path = Self::get_key_file_path()?;
-        
-        if key_file_path.exists() {
-            debug!("Found existing key file at {:?}", key_file_path);
-            Ok(Some(key_file_path))
+
+        // Current (expected) location
+        let current_path = Self::get_key_file_path()?;
+        if current_path.exists() {
+            debug!("Found key file at expected location: {:?}", current_path);
+            return Ok(Some(current_path));
+        }
+
+        // Look for a legacy key file in the *other* support directory
+        let base = data_local_dir().ok_or(KeychainError::AppSupportDirNotFound)?;
+        let legacy_folder = if cfg!(debug_assertions) { "Journal" } else { "Journal-dev" };
+        let legacy_path = base.join(legacy_folder).join(KEY_FILE_NAME);
+
+        if legacy_path.exists() {
+            debug!(
+                "Found legacy key file in alternate support directory: {:?}",
+                legacy_path
+            );
+            Ok(Some(legacy_path))
         } else {
-            debug!("No existing key file found");
+            debug!("No key file found in any known location");
             Ok(None)
         }
     }
@@ -148,16 +162,36 @@ impl KeychainManager {
 
     pub fn initialize_key(&self) -> Result<String, KeychainError> {
         debug!("Initializing encryption key");
-        
-        // First check if we have an existing key file to migrate
-        if let Some(key_file_path) = Self::detect_existing_key_file()? {
-            debug!("Found existing key file, starting migration");
-            self.migrate_existing_key(&key_file_path)?;
-            self.get_key()
-        } else {
-            // No existing key file, generate and store a new key
-            debug!("No existing key file found, generating new key");
-            self.generate_and_store_new_key()
+
+        // 1️⃣ Try retrieving a key directly from the keychain
+        match self.get_key() {
+            Ok(key) => {
+                debug!("Found existing key in keychain");
+                // Clean up any stale key file once keychain is confirmed
+                let _ = self.cleanup_stale_key_file();
+                Ok(key)
+            }
+            Err(KeychainError::KeyNotFound) => {
+                debug!("Key not found in keychain, will check for and migrate any existing key file");
+                // If a legacy key file exists, migrate it
+                if let Some(key_file_path) = Self::detect_existing_key_file()? {
+                    debug!("Migrating existing key file: {:?}", key_file_path);
+                    self.migrate_existing_key(&key_file_path)?;
+                    // After migration, cleanup any remaining key file
+                    let _ = self.cleanup_stale_key_file();
+                    // Retrieve the migrated key from keychain
+                    let key = self.get_key()?;
+                    Ok(key)
+                } else {
+                    // No key file: generate a new key and store in keychain
+                    debug!("No existing key file, generating new key");
+                    let new_key = self.generate_and_store_new_key()?;
+                    // Clean up if a key file somehow exists
+                    let _ = self.cleanup_stale_key_file();
+                    Ok(new_key)
+                }
+            }
+            Err(e) => Err(e),
         }
     }
 
@@ -320,6 +354,20 @@ impl KeychainManager {
     }
 
 
+    /// Deletes any leftover on‑disk `journal.key` once the key is safely stored in
+    /// the macOS Keychain.  It is a no‑op if no file is found.
+    fn cleanup_stale_key_file(&self) -> Result<(), KeychainError> {
+        if let Some(path) = Self::detect_existing_key_file()? {
+            if path.exists() {
+                debug!("Deleting stale key file at {:?}", path);
+                fs::remove_file(&path).map_err(|e| {
+                    KeychainError::FileError(format!("Failed to delete key file: {}", e))
+                })?;
+            }
+        }
+        Ok(())
+    }
+
     /// Ensures we have a usable encryption key, prompting the user only once.
     ///
     /// Strategy:
@@ -332,23 +380,39 @@ impl KeychainManager {
     ///      which triggers exactly one “add item” prompt.
     ///    • Any other error (access‑denied, etc.) bubbles up.
     pub fn authorize_keychain(&self) -> Result<(), KeychainError> {
-        // Step 1 – fast‑path: already cached for this process.
+        // ──────────────────────────────────────────────────────────────
+        // 1️⃣ Fast path: key is already cached for this process.
+        // We **do not** delete any on‑disk key file yet; the database may
+        // still depend on it. Cleanup happens after the DB opens.
+        // ──────────────────────────────────────────────────────────────
         if IN_MEMORY_KEY.get().is_some() {
             return Ok(());
         }
 
+        // ──────────────────────────────────────────────────────────────
+        // 2️⃣ Try the key already stored in the macOS Keychain.  
+        // If that works, again leave any legacy key file alone for now.
+        // ──────────────────────────────────────────────────────────────
         match self.get_key() {
-            Ok(_) => Ok(()), // key read & cached
+            Ok(_) => {
+                // Key read & cached – we'll delete any legacy key file later,
+                // once the database has opened successfully.
+                Ok(())
+            }, // key read & cached
             Err(KeychainError::KeyNotFound) => {
                 // First look for a legacy on‑disk `journal.key` and migrate it.
                 if let Some(path) = Self::detect_existing_key_file()? {
                     // One‑time migration (single “add item” prompt).
                     self.migrate_existing_key(&path)?;
+                    self.cleanup_stale_key_file()?;
                     // Re‑read so the key is cached for this process.
                     self.get_key().map(|_| ())
                 } else {
                     // Brand‑new install: generate a fresh key (single prompt).
-                    self.generate_and_store_new_key().map(|_| ())
+                    self.generate_and_store_new_key().and_then(|_| {
+                        self.cleanup_stale_key_file()?;
+                        Ok(())
+                    })
                 }
             }
             Err(e) => Err(e), // propagate access‑denied or other errors

@@ -1,10 +1,10 @@
 {
-  "version": "0.1.8",
-  "notes": "Update 0.1.8",
-  "pub_date": "2025-06-06T17:35:44Z",
+  "version": "0.1.9",
+  "notes": "Update 0.1.9",
+  "pub_date": "2025-06-06T19:57:22Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbUQwZjBXRllJbkhUSzBqNHp0bENzb2JtbTMrZStYMmNLakZmOEc2V0lXNjVZcFhvdTljRVFQMU1ucHNyYkQxRzRCV25BOXN0THRIWkhMdUVwNmlKNTNpWkNqbkNvU1FzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzQ5MjMxMzQ0CWZpbGU6Sm91cm5hbC5hcHAudGFyLmd6Cm5tYmYwM051S1owSW0xR0VEOHV2SGZlb0MxMWFidTBEZ2pCRkRkVW5YUGpzUlJiTEtRL1o1a2ZnR1pjT0tXbWs4OCtBMzRucDZacTBLZ1BmK1RGTkN3PT0K",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbUQwZjBXRllJbkI2L1JlQ1Ara2w3Wm5zSjlxS05Hd3Y4VTZlWE1sM2kyTk11QWF4WXhHN0hwdkFJRHE3NEVTamw3TEdXQktySWwwc01jWmpwaTZvMS9OZVBXd0F0dndFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzQ5MjM5ODQyCWZpbGU6Sm91cm5hbC5hcHAudGFyLmd6CnF6aHM0KzBhMFRycVBYa3o0MEV3bzJycVlDRzdoSWcwUWpsakpqZFFCZFFPZ0tvM3RHdGxNVmlrY3ZWR3JmUjJrVHJMYVB0bFR1SVJ3Rkl1aDVpUUFBPT0K",
       "url": "https://github.com/nickrroberts/journal/releases/latest/download/Journal.app.tar.gz"
     }
   }

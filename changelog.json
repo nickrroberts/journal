@@ -25,5 +25,8 @@
     "Styling and font updates!",
     "Dates!",
     "A collapsible sidebar!"
+  ],
+  "0.1.9": [
+    "macOS Keychain encryption!"
   ]
 }

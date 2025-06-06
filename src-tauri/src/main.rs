@@ -31,6 +31,37 @@ impl DatabaseManager {
             error_type: "file_error".to_string(),
         })?;
         let db_path = db_dir.join("journal.db");
+        // Track whether a database already exists before we open it or copy one in
+        let mut db_exists = db_path.exists();
+        // ------------------------------------------------------------------
+        // Legacy migration: copy an existing database from the *alternate*
+        // application‑support folder (e.g. "Journal" ↔ "Journal‑dev") if the
+        // current location is empty. This prevents data loss when users move
+        // between release and dev builds.
+        // ------------------------------------------------------------------
+        if !db_path.exists() {
+            let base = dirs::data_local_dir().ok_or_else(|| ErrorResponse {
+                message: "Could not determine application support directory".to_string(),
+                error_type: "app_support_error".to_string(),
+            })?;
+            // The folder we're NOT currently using
+            let alt_folder = if cfg!(debug_assertions) { "Journal" } else { "Journal-dev" };
+            let alt_db_path = base.join(alt_folder).join("journal.db");
+            if alt_db_path.exists() {
+                debug!("Found legacy database at {:?}, migrating…", alt_db_path);
+                // Ensure destination directory exists (already created above, but be safe)
+                fs::create_dir_all(&db_dir).map_err(|e| ErrorResponse {
+                    message: format!("Failed to create database directory: {}", e),
+                    error_type: "file_error".to_string(),
+                })?;
+                fs::copy(&alt_db_path, &db_path).map_err(|e| ErrorResponse {
+                    message: format!("Failed to migrate legacy database: {}", e),
+                    error_type: "file_error".to_string(),
+                })?;
+                // Mark that a database now exists in the current location
+                db_exists = true;
+            }
+        }
         debug!("Database path: {:?}", db_path);
         let keychain = KeychainManager::new()
             .map_err(|e| ErrorResponse {
@@ -43,13 +74,14 @@ impl DatabaseManager {
             error_type: "keychain_error".to_string(),
         })?;
 
-        // After authorization the key is cached, just retrieve it
-        let encryption_key = keychain.get_key().map_err(|e| ErrorResponse {
-            message: e.to_string(),
-            error_type: "keychain_error".to_string(),
-        })?;
-        let db_exists = db_path.exists();
-        let mut conn_result = rusqlite::Connection::open(&db_path);
+        // After authorization, migrate any legacy key-file and get the correct key
+        let mut encryption_key = keychain
+            .initialize_key()
+            .map_err(|e| ErrorResponse {
+                message: e.to_string(),
+                error_type: "keychain_error".to_string(),
+            })?;
+        let conn_result = rusqlite::Connection::open(&db_path);
         let mut conn = match conn_result {
             Ok(c) => c,
             Err(e) => {
@@ -76,16 +108,49 @@ impl DatabaseManager {
         if let Err(e) = set_key_result {
             #[cfg(debug_assertions)]
             {
-                warn!("Failed to set key in dev mode: {}. Attempting to reset DB.", e);
-                let _ = fs::remove_file(&db_path);
-                conn = rusqlite::Connection::open(&db_path).map_err(|e| ErrorResponse {
-                    message: format!("Failed to create new database after reset: {}", e),
-                    error_type: "database_error".to_string(),
-                })?;
-                conn.pragma_update(None, "key", &encryption_key).map_err(|e| ErrorResponse {
-                    message: format!("Failed to set key after reset: {}", e),
-                    error_type: "database_error".to_string(),
-                })?;
+                warn!(
+                    "Failed to set key in dev mode: {}. Trying to migrate legacy key before resetting DB.",
+                    e
+                );
+
+                // Assume a full reset is needed unless migration succeeds
+                let mut must_reset = true;
+
+                // 1️⃣ Try migrating any legacy on‑disk key first
+                if let Ok(Some(key_path)) = KeychainManager::detect_existing_key_file() {
+                    warn!("Attempting key migration from {:?}", key_path);
+                    if keychain.migrate_existing_key(&key_path).is_ok() {
+                        if let Ok(new_key) = keychain.get_key() {
+                            // Use the migrated key going forward
+                            encryption_key = new_key;
+
+                            // Re‑open the connection and retry with the migrated key
+                            conn = rusqlite::Connection::open(&db_path).map_err(|e| ErrorResponse {
+                                message: format!("Failed to reopen database after key migration: {}", e),
+                                error_type: "database_error".to_string(),
+                            })?;
+
+                            if conn.pragma_update(None, "key", &encryption_key).is_ok() {
+                                debug!("Key migration succeeded – no data loss 🎉");
+                                must_reset = false;
+                            }
+                        }
+                    }
+                }
+
+                // 2️⃣ Last resort: wipe and recreate the DB (old behaviour)
+                if must_reset {
+                    warn!("Resetting database because it could not be opened with any key.");
+                    let _ = fs::remove_file(&db_path);
+                    conn = rusqlite::Connection::open(&db_path).map_err(|e| ErrorResponse {
+                        message: format!("Failed to create new database after reset: {}", e),
+                        error_type: "database_error".to_string(),
+                    })?;
+                    conn.pragma_update(None, "key", &encryption_key).map_err(|e| ErrorResponse {
+                        message: format!("Failed to set key after reset: {}", e),
+                        error_type: "database_error".to_string(),
+                    })?;
+                }
             }
             #[cfg(not(debug_assertions))]
             {
@@ -113,29 +178,76 @@ impl DatabaseManager {
             if schema_missing_or_error {
                 #[cfg(debug_assertions)]
                 {
-                    warn!("Schema missing or error in dev mode. Resetting DB.");
-                    let _ = fs::remove_file(&db_path);
-                    conn = rusqlite::Connection::open(&db_path).map_err(|e| ErrorResponse {
-                        message: format!("Failed to create new database after reset: {}", e),
-                        error_type: "database_error".to_string(),
-                    })?;
-                    conn.pragma_update(None, "key", &encryption_key).map_err(|e| ErrorResponse {
-                        message: format!("Failed to set key after reset: {}", e),
-                        error_type: "database_error".to_string(),
-                    })?;
-                    debug!("Creating database schema after reset");
-                    conn.execute(
-                        "CREATE TABLE IF NOT EXISTS journal_entries (
-                            id INTEGER PRIMARY KEY,
-                            title TEXT NOT NULL,
-                            body TEXT NOT NULL,
-                            created_at TEXT NOT NULL
-                        )",
-                        [],
-                    ).map_err(|e| ErrorResponse {
-                        message: format!("Failed to create database schema after reset: {}", e),
-                        error_type: "database_error".to_string(),
-                    })?;
+                    warn!(
+                        "Schema not found or unreadable – possible key mismatch. \
+                         Attempting last‑chance key migration before wiping."
+                    );
+
+                    // Flag to decide whether we really need to reset the DB
+                    let mut recovered = false;
+
+                    // 👉 Try migrating any stray on‑disk key (if one still exists)
+                    if let Ok(Some(key_path)) = KeychainManager::detect_existing_key_file() {
+                        warn!("Attempting key migration from {:?}", key_path);
+                        if keychain.migrate_existing_key(&key_path).is_ok() {
+                            if let Ok(new_key) = keychain.get_key() {
+                                // Use the migrated key from now on
+                                encryption_key = new_key;
+
+                                // Re‑open the connection with the migrated key
+                                if let Ok(c) = rusqlite::Connection::open(&db_path) {
+                                    if c.pragma_update(None, "key", &encryption_key).is_ok() {
+                                        // Quick sanity‑check: does the expected table exist now?
+                                        let table_ok = c
+                                            .query_row(
+                                                "SELECT 1 FROM sqlite_master \
+                                                 WHERE type='table' AND name='journal_entries' \
+                                                 LIMIT 1",
+                                                [],
+                                                |_| Ok::<_, rusqlite::Error>(()),
+                                            )
+                                            .is_ok();
+
+                                        if table_ok {
+                                            debug!(
+                                                "Key migration succeeded – keeping existing \
+                                                 database intact 🎉"
+                                            );
+                                            conn = c;
+                                            recovered = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ❌ Migration failed – fall back to the original dev‑mode reset
+                    if !recovered {
+                        warn!("Resetting database because it could not be opened with any key.");
+                        let _ = fs::remove_file(&db_path);
+                        conn = rusqlite::Connection::open(&db_path).map_err(|e| ErrorResponse {
+                            message: format!("Failed to create new database after reset: {}", e),
+                            error_type: "database_error".to_string(),
+                        })?;
+                        conn.pragma_update(None, "key", &encryption_key).map_err(|e| ErrorResponse {
+                            message: format!("Failed to set key after reset: {}", e),
+                            error_type: "database_error".to_string(),
+                        })?;
+                        debug!("Creating database schema after reset");
+                        conn.execute(
+                            "CREATE TABLE IF NOT EXISTS journal_entries (
+                                id INTEGER PRIMARY KEY,
+                                title TEXT NOT NULL,
+                                body TEXT NOT NULL,
+                                created_at TEXT NOT NULL
+                            )",
+                            [],
+                        ).map_err(|e| ErrorResponse {
+                            message: format!("Failed to create database schema after reset: {}", e),
+                            error_type: "database_error".to_string(),
+                        })?;
+                    }
                 }
                 #[cfg(not(debug_assertions))]
                 {

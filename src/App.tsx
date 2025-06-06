@@ -497,8 +497,9 @@ const handleDismissUpToDate = () => setShowUpToDate(false);
                     </button>
                   </div>
                 ) : (
-                  <EntryEditor 
-                    selectedId={selectedId} 
+                  <EntryEditor
+                    key={selectedId}
+                    selectedId={selectedId}
                     refreshEntries={refreshEntries}
                     updateEntryTitle={updateEntryTitle}
                   />
