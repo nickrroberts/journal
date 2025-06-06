@@ -1,44 +1,46 @@
-[package]
-name = "Journal"
-version = "0.1.9"
-description = "A Tauri App"
-authors = ["@nickrroberts"]
-edition = "2021"
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# Dependency directories
+node_modules/
 
-[lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "journal_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# Build output
+dist/
+dist-ssr/
 
-[build-dependencies]
-tauri-build = { version = "2.0", features = ["config-json5"] }
+# Tauri build artifacts
+/src-tauri/target/
 
-[dependencies]
-tauri = { version = "2.0", features = ["macos-private-api"] }
-tauri-plugin-fs = "2.0"
-tauri-plugin-opener = "2"
-tauri-plugin-dialog = "2.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-dirs = "5.0"
-chrono = "0.4.41"
-libsql = "0.3"
-rusqlite = { version = "0.29", features = ["bundled-sqlcipher"] }
-uuid = { version = "1", features = ["v4"] }
-tauri-plugin-process = "2"
-tauri-plugin-clipboard-manager = "2"
-keyring = "2.0.5"
-log = "0.4"
-env_logger = "0.10"
-once_cell = "1.19"
+# SQLite database and key files
+journal.db
+journal.key
+*.db
+*.key
+.env
+.env.local
 
-[dev-dependencies]
-tempfile = "3.8"
+# Editor directories and files
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-updater = "2"
+# Configuration scripts
+update-manifest.js
+deploy-update.sh
 
+# Miscellaneous
+*.local
+.cursor
+tasks
