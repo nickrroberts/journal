@@ -20,6 +20,7 @@ deploy-update.sh
 tasks
 .env
 .env.local
+.vscode
 
 # Logs
 logs/

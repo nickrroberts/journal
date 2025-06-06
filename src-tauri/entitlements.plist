@@ -21,4 +21,9 @@
   <!-- <key>com.apple.security.files.all</key>
   <true/> -->
 </dict>
+  <!-- Enable keychain access for the app’s access group -->
+  <key>com.apple.security.keychain-access-groups</key>
+  <array>
+    <string>$(AppIdentifierPrefix)com.journal.app</string>
+  </array>
 </plist>
