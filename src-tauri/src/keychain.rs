@@ -319,39 +319,39 @@ impl KeychainManager {
         }
     }
 
-    /// Checks if we already have a valid key (either in memory or keychain)
-    pub fn has_valid_key(&self) -> bool {
-        // First check in-memory cache
-        if IN_MEMORY_KEY.get().is_some() {
-            return true;
-        }
 
-        // If not in cache, try keychain
-        match self.keyring.get_password() {
-            Ok(key) => {
-                // Store in cache for future use
-                let _ = IN_MEMORY_KEY.set(key);
-                true
-            }
-            Err(_) => false
-        }
-    }
-
-    /// Checks if a key exists in the keychain, or creates one if missing. Returns Ok(()) if authorized, Err otherwise.
+    /// Ensures we have a usable encryption key, prompting the user only once.
+    ///
+    /// Strategy:
+    /// 1. If we have already cached a key for this process (`IN_MEMORY_KEY`),
+    ///    return immediately – no keychain I/O and therefore no prompt.
+    /// 2. Try to *read* the existing key from the Keychain (`get_key()`).
+    ///    • Success ⇒ key is now cached, we're done (one “use item” prompt
+    ///      unless the user chose “Always Allow” previously).
+    ///    • `KeyNotFound` ⇒ first launch. Generate & store a brand‑new key,
+    ///      which triggers exactly one “add item” prompt.
+    ///    • Any other error (access‑denied, etc.) bubbles up.
     pub fn authorize_keychain(&self) -> Result<(), KeychainError> {
-        // First check if we already have a valid key
-        if self.has_valid_key() {
-            debug!("Already have a valid key, skipping authorization");
+        // Step 1 – fast‑path: already cached for this process.
+        if IN_MEMORY_KEY.get().is_some() {
             return Ok(());
         }
 
-        // If no valid key, try to get or create one
         match self.get_key() {
-            Ok(_) => Ok(()),
+            Ok(_) => Ok(()), // key read & cached
             Err(KeychainError::KeyNotFound) => {
-                self.generate_and_store_new_key().map(|_| ())
-            },
-            Err(e) => Err(e),
+                // First look for a legacy on‑disk `journal.key` and migrate it.
+                if let Some(path) = Self::detect_existing_key_file()? {
+                    // One‑time migration (single “add item” prompt).
+                    self.migrate_existing_key(&path)?;
+                    // Re‑read so the key is cached for this process.
+                    self.get_key().map(|_| ())
+                } else {
+                    // Brand‑new install: generate a fresh key (single prompt).
+                    self.generate_and_store_new_key().map(|_| ())
+                }
+            }
+            Err(e) => Err(e), // propagate access‑denied or other errors
         }
     }
 }

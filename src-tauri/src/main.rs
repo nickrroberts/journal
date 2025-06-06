@@ -4,20 +4,22 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use tauri::State;
-use crate::keychain::{KeychainManager, KeychainError, authorize_keychain_command};
+use crate::keychain::{KeychainManager, authorize_keychain_command};
 use tauri_plugin_updater;
 use log::{debug, warn};
-use std::sync::Mutex;
 use chrono::Utc;
-use once_cell::sync::OnceCell;
 use std::fmt;
+use tauri::menu::{AboutMetadata, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri_plugin_clipboard_manager;
+use tauri_plugin_opener;
+use tauri_plugin_process;
+use tauri_plugin_dialog;
+use tauri::{Emitter, Manager};
 
 mod keychain;
 
 struct DatabaseManager {
     conn: rusqlite::Connection,
-    keychain: KeychainManager,
 }
 
 impl DatabaseManager {
@@ -35,25 +37,17 @@ impl DatabaseManager {
                 message: e.to_string(),
                 error_type: "keychain_error".to_string(),
             })?;
-        let encryption_key = match keychain.get_key() {
-            Ok(key) => {
-                debug!("Retrieved encryption key from keychain");
-                key
-            },
-            Err(KeychainError::KeyNotFound) => {
-                debug!("No key found in keychain, generating new key");
-                keychain.generate_and_store_new_key().map_err(|e| ErrorResponse {
-                    message: e.to_string(),
-                    error_type: "keychain_error".to_string(),
-                })?
-            },
-            Err(e) => {
-                return Err(ErrorResponse {
-                    message: e.to_string(),
-                    error_type: "keychain_error".to_string(),
-                });
-            }
-        };
+        // Ensure we have a key in the Keychain (handles legacy file migration too)
+        keychain.authorize_keychain().map_err(|e| ErrorResponse {
+            message: e.to_string(),
+            error_type: "keychain_error".to_string(),
+        })?;
+
+        // After authorization the key is cached, just retrieve it
+        let encryption_key = keychain.get_key().map_err(|e| ErrorResponse {
+            message: e.to_string(),
+            error_type: "keychain_error".to_string(),
+        })?;
         let db_exists = db_path.exists();
         let mut conn_result = rusqlite::Connection::open(&db_path);
         let mut conn = match conn_result {
@@ -166,7 +160,7 @@ impl DatabaseManager {
                 error_type: "database_error".to_string(),
             })?;
         }
-        Ok(Self { conn, keychain })
+        Ok(Self { conn })
     }
 
     fn export_database(&self, export_path: &PathBuf) -> Result<(), ErrorResponse> {
@@ -351,7 +345,103 @@ fn main() {
     debug!("Starting application");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
+        .setup(|app| {
+            // Build the application menu --------------------------
+            let settings = MenuItemBuilder::new("Settings…")
+                .id("settings")
+                .accelerator("Cmd+,")
+                .build(app)?;
+            let check_updates = MenuItemBuilder::new("Check for updates…")
+                .id("check_updates")
+                .build(app)?;
+            let app_submenu = SubmenuBuilder::new(app, &app.package_info().name)
+                .about(Some(AboutMetadata::default()))
+                .separator()
+                .item(&settings)
+                .item(&check_updates)
+                .separator()
+                .quit()
+                .build()?;
+
+            // File ▸ New Entry
+            let new_entry = MenuItemBuilder::new("New Entry")
+                .id("new_entry")
+                .accelerator("CmdOrCtrl+N")
+                .build(app)?;
+            let file_menu = SubmenuBuilder::new(app, "File")
+                .item(&new_entry)
+                .build()?;
+
+            // Edit menu with standard shortcuts
+            let undo = MenuItemBuilder::new("Undo")
+                .id("undo")
+                .accelerator("CmdOrCtrl+Z")
+                .build(app)?;
+            let redo = MenuItemBuilder::new("Redo")
+                .id("redo")
+                .accelerator("Shift+CmdOrCtrl+Z")
+                .build(app)?;
+            let cut = MenuItemBuilder::new("Cut")
+                .id("cut")
+                .accelerator("CmdOrCtrl+X")
+                .build(app)?;
+            let copy = MenuItemBuilder::new("Copy")
+                .id("copy")
+                .accelerator("CmdOrCtrl+C")
+                .build(app)?;
+            let paste = MenuItemBuilder::new("Paste")
+                .id("paste")
+                .accelerator("CmdOrCtrl+V")
+                .build(app)?;
+            let select_all = MenuItemBuilder::new("Select All")
+                .id("select_all")
+                .accelerator("CmdOrCtrl+A")
+                .build(app)?;
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .item(&undo)
+                .item(&redo)
+                .separator()
+                .item(&cut)
+                .item(&copy)
+                .item(&paste)
+                .separator()
+                .item(&select_all)
+                .build()?;
+
+            // Window ▸ Blur toggle
+            let blur_item = MenuItemBuilder::new("Blur")
+                .id("blur")
+                .accelerator("Ctrl+B")
+                .build(app)?;
+            let window_menu = SubmenuBuilder::new(app, "Window")
+                .item(&blur_item)
+                .build()?;
+
+            let menu = MenuBuilder::new(app)
+                .items(&[&app_submenu, &file_menu, &edit_menu, &window_menu])
+                .build()?;
+            app.set_menu(menu)?;
+            Ok(())
+        })
+        .on_menu_event(|window, menu_event| match menu_event.id().0.as_str() {
+            "settings" => window.emit("open-settings", {}).unwrap(),
+            "check_updates" => window.emit("check-for-updates", {}).unwrap(),
+            "new_entry" => window.emit("new-entry", {}).unwrap(),
+            "blur" => window.emit("blur", {}).unwrap(),
+            "undo" | "redo" | "cut" | "copy" | "paste" | "select_all" => {
+                window
+                    .get_webview_window("main")
+                    .unwrap()
+                    .eval(&format!("document.execCommand('{}')", menu_event.id().0))
+                    .unwrap();
+            }
+            _ => {}
+        })
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_entries,
             get_entry,

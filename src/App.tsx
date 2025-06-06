@@ -280,16 +280,32 @@ const handleDismissUpToDate = () => setShowUpToDate(false);
   // Load entries once we are authorized
   useEffect(() => {
     if (keychainStatus === "authorized") {
-      invoke<Entry[]>("get_entries")
-        .then((entries) => {
-          setEntries(entries);
-          if (entries.length > 0 && selectedId === null) {
-            setSelectedId(entries[0].id);
+      (async () => {
+        const loadedEntries = await invoke<Entry[]>("get_entries");
+        if (loadedEntries.length === 0) {
+          // No entries: create a new one, then reload
+          const newId = await createNewEntry();
+          const newEntries = await invoke<Entry[]>("get_entries");
+          setEntries(newEntries);
+          setSelectedId(newId);
+        } else {
+          setEntries(loadedEntries);
+          if (selectedId === null) {
+            setSelectedId(loadedEntries[0].id);
           }
-        })
-        .catch((err) => console.error("Failed to fetch entries:", err));
+        }
+      })();
     }
   }, [keychainStatus]);
+
+  // After deleting all entries, create a new one automatically
+  const handleDeleteAllEntries = async () => {
+    await invoke("delete_all_entries");
+    const newId = await createNewEntry();
+    const newEntries = await invoke<Entry[]>("get_entries");
+    setEntries(newEntries);
+    setSelectedId(newId);
+  };
 
   return (
     <>
@@ -297,18 +313,18 @@ const handleDismissUpToDate = () => setShowUpToDate(false);
       {keychainStatus !== "authorized" && (
         <Modal
           visible={true}
-          header={keychainStatus === "error" ? "Keychain Access Error" : "Keychain Access Required"}
+          header={keychainStatus === "error" ? "Keychain access error" : "Keychain access required"}
           body={
             <div>
               {keychainStatus === "error" ? (
                 <>
                   <p className="text-red-600 mb-2">{keychainError || "Failed to access the system keychain."}</p>
-                  <p>Please grant access to the keychain to use encrypted journal entries.</p>
+                  <p>Please grant access to the keychain to view and create encrypted journal entries.</p>
                 </>
               ) : (
                 <>
-                  <p>This app uses the macOS Keychain to securely store your encryption key. We need your permission to access the keychain.</p>
-                  <p className="mt-2">You will only be asked once, unless you reset your keychain or reinstall the app.</p>
+                  <p>This app uses the macOS Keychain to securely encrypt your journal. We need your permission to access the keychain </p>
+                  <p className="mt-2">If you click 'Always Allow' you only have to do this once, unless you reset your keychain or reinstall the app.</p>
                 </>
               )}
             </div>
@@ -463,11 +479,38 @@ const handleDismissUpToDate = () => setShowUpToDate(false);
                   />
                 </div>
               ) : (
-                <EntryEditor 
-                  selectedId={selectedId} 
-                  refreshEntries={refreshEntries}
-                  updateEntryTitle={updateEntryTitle}
-                />
+                entries.length === 0 ? (
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%',
+                  }}>
+                    <h2 className="editor-title font-serif" style={{ marginBottom: '1rem', textAlign: 'center' }}>Nothing here yet</h2>
+                    <button
+                      style={{
+                        padding: '0.75rem 1.5rem',
+                        fontSize: '1rem',
+                        borderRadius: '0.5rem',
+                        border: 'none',
+                        background: '#0070f3',
+                        color: 'white',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                      }}
+                      onClick={handleCreateNewEntry}
+                    >
+                      Add your first entry
+                    </button>
+                  </div>
+                ) : (
+                  <EntryEditor 
+                    selectedId={selectedId} 
+                    refreshEntries={refreshEntries}
+                    updateEntryTitle={updateEntryTitle}
+                  />
+                )
               )}
             </div>
 
