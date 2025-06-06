@@ -6,10 +6,15 @@ use std::fs;
 use std::path::PathBuf;
 use dirs::data_local_dir;
 use uuid::Uuid;
+use tauri::command;
+use once_cell::sync::OnceCell;
 
 const SERVICE_NAME: &str = "com.journal.app";
 const ACCOUNT_NAME: &str = "journal_encryption_key";
 const KEY_FILE_NAME: &str = "journal.key";
+
+// Static in-memory cache for the encryption key
+static IN_MEMORY_KEY: OnceCell<String> = OnceCell::new();
 
 #[derive(Debug)]
 pub enum KeychainError {
@@ -254,34 +259,20 @@ impl KeychainManager {
         Ok(())
     }
 
-    /// Attempts to store a key in the keychain, with specific handling for access denied scenarios
-    fn store_key(&self, key: &str) -> Result<(), KeychainError> {
-        match self.keyring.set_password(key) {
-            Ok(_) => {
-                log::info!("Successfully stored key in keychain");
-                Ok(())
-            }
-            Err(e) => {
-                // Check for specific error messages that indicate access denied
-                let error_msg = e.to_string().to_lowercase();
-                if error_msg.contains("denied") || 
-                   error_msg.contains("access") || 
-                   error_msg.contains("permission") {
-                    log::error!("Keychain access denied: {}", e);
-                    Err(KeychainError::KeychainAccessDenied)
-                } else {
-                    log::error!("Failed to store key in keychain: {}", e);
-                    Err(KeychainError::KeychainError(e.to_string()))
-                }
-            }
-        }
-    }
-
     /// Attempts to retrieve a key from the keychain, with specific handling for access denied scenarios
-    fn get_key(&self) -> Result<String, KeychainError> {
+    pub fn get_key(&self) -> Result<String, KeychainError> {
+        // First check the in-memory cache
+        if let Some(key) = IN_MEMORY_KEY.get() {
+            debug!("Retrieved key from in-memory cache");
+            return Ok(key.clone());
+        }
+
+        // If not in cache, try to get from keychain
         match self.keyring.get_password() {
             Ok(key) => {
-                log::info!("Successfully retrieved key from keychain");
+                debug!("Successfully retrieved key from keychain");
+                // Store in cache for future use
+                let _ = IN_MEMORY_KEY.set(key.clone());
                 Ok(key)
             }
             Err(e) => {
@@ -303,11 +294,13 @@ impl KeychainManager {
         }
     }
 
-    /// Attempts to delete a key from the keychain, with specific handling for access denied scenarios
-    fn delete_key(&self) -> Result<(), KeychainError> {
-        match self.keyring.delete_password() {
+    /// Attempts to store a key in the keychain, with specific handling for access denied scenarios
+    fn store_key(&self, key: &str) -> Result<(), KeychainError> {
+        match self.keyring.set_password(key) {
             Ok(_) => {
-                log::info!("Successfully deleted key from keychain");
+                log::info!("Successfully stored key in keychain");
+                // Update the in-memory cache
+                let _ = IN_MEMORY_KEY.set(key.to_string());
                 Ok(())
             }
             Err(e) => {
@@ -319,12 +312,54 @@ impl KeychainManager {
                     log::error!("Keychain access denied: {}", e);
                     Err(KeychainError::KeychainAccessDenied)
                 } else {
-                    log::error!("Failed to delete key from keychain: {}", e);
+                    log::error!("Failed to store key in keychain: {}", e);
                     Err(KeychainError::KeychainError(e.to_string()))
                 }
             }
         }
     }
+
+    /// Checks if we already have a valid key (either in memory or keychain)
+    pub fn has_valid_key(&self) -> bool {
+        // First check in-memory cache
+        if IN_MEMORY_KEY.get().is_some() {
+            return true;
+        }
+
+        // If not in cache, try keychain
+        match self.keyring.get_password() {
+            Ok(key) => {
+                // Store in cache for future use
+                let _ = IN_MEMORY_KEY.set(key);
+                true
+            }
+            Err(_) => false
+        }
+    }
+
+    /// Checks if a key exists in the keychain, or creates one if missing. Returns Ok(()) if authorized, Err otherwise.
+    pub fn authorize_keychain(&self) -> Result<(), KeychainError> {
+        // First check if we already have a valid key
+        if self.has_valid_key() {
+            debug!("Already have a valid key, skipping authorization");
+            return Ok(());
+        }
+
+        // If no valid key, try to get or create one
+        match self.get_key() {
+            Ok(_) => Ok(()),
+            Err(KeychainError::KeyNotFound) => {
+                self.generate_and_store_new_key().map(|_| ())
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+
+#[command]
+pub fn authorize_keychain_command() -> Result<(), String> {
+    let manager = KeychainManager::new().map_err(|e| e.to_user_message())?;
+    manager.authorize_keychain().map_err(|e| e.to_user_message())
 }
 
 #[cfg(test)]
