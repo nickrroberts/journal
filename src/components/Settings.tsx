@@ -41,7 +41,7 @@ export default function Settings({ currentTheme, onThemeChange, onImportComplete
       });
 
       if (selected && typeof selected === 'string') {
-        await invoke('import_database', { filePath: selected });
+        await invoke('import_database', { path: selected });
         setImportStatus('Database imported successfully');
         onImportComplete();
         setTimeout(() => setImportStatus(''), 3000);
