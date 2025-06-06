@@ -298,14 +298,6 @@ const handleDismissUpToDate = () => setShowUpToDate(false);
     }
   }, [keychainStatus]);
 
-  // After deleting all entries, create a new one automatically
-  const handleDeleteAllEntries = async () => {
-    await invoke("delete_all_entries");
-    const newId = await createNewEntry();
-    const newEntries = await invoke<Entry[]>("get_entries");
-    setEntries(newEntries);
-    setSelectedId(newId);
-  };
 
   return (
     <>
